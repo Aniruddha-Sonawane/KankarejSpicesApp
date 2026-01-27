@@ -6,8 +6,11 @@
         <!-- Background color -->
         <item name="windowSplashScreenBackground">@color/splash_background</item>
 
-        <!-- Splash icon -->
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <!-- FIX: use a drawable logo, NOT mipmap launcher icon -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+
+        <!-- Optional: remove animation scaling for maximum sharpness -->
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
 
         <!-- Theme applied after splash -->
         <item name="postSplashScreenTheme">@style/Theme.KankarejSpices</item>
