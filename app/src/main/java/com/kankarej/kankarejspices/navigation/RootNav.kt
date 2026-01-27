@@ -14,7 +14,9 @@ object Routes {
 }
 
 @Composable
-fun RootNav() {
+fun RootNav(
+    onToggleTheme: () -> Unit
+) {
     val navController = rememberNavController()
 
     NavHost(
@@ -22,7 +24,10 @@ fun RootNav() {
         startDestination = Routes.TABS
     ) {
         composable(Routes.TABS) {
-            TabsNav(navController)
+            TabsNav(
+                rootNav = navController,
+                onToggleTheme = onToggleTheme
+            )
         }
         composable(Routes.MODAL) {
             ModalScreen()
