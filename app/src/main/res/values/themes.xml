@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.KankarejSpices" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Splash Screen Theme -->
+    <style name="Theme.KankarejSpices.Splash" parent="Theme.SplashScreen">
+        <!-- Background color -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+
+        <!-- Splash icon -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+
+        <!-- Theme applied after splash -->
+        <item name="postSplashScreenTheme">@style/Theme.KankarejSpices</item>
+    </style>
+
+    <!-- Main App Theme -->
+    <style name="Theme.KankarejSpices" parent="Theme.Material3.DayNight.NoActionBar" />
+
 </resources>
