@@ -33,7 +33,7 @@ fun TabsNav(
                 },
                 actions = {
 
-                    // TAB 1 → Modal button
+                    // TAB 1 -> Modal button
                     if (selectedTab == 0) {
                         IconButton(
                             onClick = { rootNav.navigate(Routes.MODAL) }
@@ -45,7 +45,7 @@ fun TabsNav(
                         }
                     }
 
-                    // TAB 2 → Theme toggle button (same position)
+                    // TAB 2 -> Theme toggle button (same position)
                     if (selectedTab == 1) {
                         IconButton(
                             onClick = {
