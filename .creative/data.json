@@ -1,0 +1,24 @@
+{
+  "categories": {
+    "spices": {
+      "name": "Spices",
+      "order": 1
+    }
+  },
+  "products": {
+    "p1": {
+      "name": "Red Chilli Powder",
+      "price": 120,
+      "category": "spices",
+      "rating": 4.6,
+      "imageUrl": "https://pub-xxxxx.r2.dev/products/chilli.jpg"
+    },
+    "p2": {
+      "name": "Turmeric Powder",
+      "price": 90,
+      "category": "spices",
+      "rating": 4.3,
+      "imageUrl": "https://pub-xxxxx.r2.dev/products/turmeric.jpg"
+    }
+  }
+}

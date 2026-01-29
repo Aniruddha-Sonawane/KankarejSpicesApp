@@ -3,6 +3,7 @@ package com.kankarej.kankarejspices.screens.tabs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.kankarej.kankarejspices.data.ProductRepository
+import com.kankarej.kankarejspices.model.Product
 
 private val BgSecondary = Color(0xFFF5F5F5)
 private val BorderColor = Color(0xFFE6E6E6)
@@ -37,7 +41,86 @@ fun TabOneScreen() {
         PillsRow()
         Banner()
         CategoryRow()
-        ProductRow()
+
+        // ✅ REAL PRODUCTS FROM FIREBASE
+        ProductScreen()
+    }
+}
+
+/* ---------------- FIREBASE PRODUCT LIST ---------------- */
+
+@Composable
+private fun ProductScreen() {
+    val repo = remember { ProductRepository() }
+    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            products = repo.getProducts()
+        } catch (e: Exception) {
+    e.printStackTrace()
+    error = e.message ?: "Unknown error"
+}
+finally {
+            isLoading = false
+        }
+    }
+
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
+        error != null -> {
+            Text(
+                text = "Failed to load products: $error",
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+
+        else -> {
+            LazyColumn(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(products.size) { index ->
+                    val product = products[index]
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = product.imageUrl,
+                            contentDescription = product.name,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Column {
+                            Text(
+                                text = product.name,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text("₹${product.price}")
+                            Text("Rating: ${product.rating}")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -130,22 +213,6 @@ private fun Banner() {
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            repeat(5) { index ->
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(if (index == 0) Color.Black else Color.LightGray)
-                )
-            }
-        }
     }
 }
 
@@ -171,49 +238,6 @@ private fun CategoryRow() {
                 Text(
                     text = "Title",
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
-
-/* ---------------- PRODUCTS ---------------- */
-
-@Composable
-private fun ProductRow() {
-    SectionHeader("Title")
-
-    LazyRow(
-        modifier = Modifier.padding(start = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(3) {
-            Column(modifier = Modifier.width(148.dp)) {
-
-                Box(
-                    modifier = Modifier
-                        .size(148.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFDDDDDD))
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text(
-                    text = "Brand",
-                    fontSize = 12.sp,
-                    color = Color(0x80000000)
-                )
-
-                Text(
-                    text = "Product name",
-                    fontSize = 14.sp
-                )
-
-                Text(
-                    text = "$10.99",
-                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
             }

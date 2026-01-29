@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "762146011378",
+    "project_id": "kankarej-spices",
+    "storage_bucket": "kankarej-spices.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:762146011378:android:35983c6ae6b540c4b2386b",
+        "android_client_info": {
+          "package_name": "com.kankarej.kankarejspices"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbBH5FAihaE3U-bkZTzln0hm4I4icsIAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
