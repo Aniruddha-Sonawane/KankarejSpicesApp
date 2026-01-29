@@ -29,7 +29,7 @@ fun TabsNav(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (selectedTab == 0) "Tab One" else "Tab Two")
+                    Text(if (selectedTab == 0) "Kankarej Spices" else "Tab Two")
                 },
                 actions = {
 

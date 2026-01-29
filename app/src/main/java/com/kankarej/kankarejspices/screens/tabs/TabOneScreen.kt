@@ -1,6 +1,7 @@
 package com.kankarej.kankarejspices.screens.tabs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
@@ -20,90 +21,116 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val BgSecondary = Color(0xFFF5F5F5)
+private val BorderColor = Color(0xFFE6E6E6)
+private val TextMuted = Color(0xFF828282)
+
 @Composable
 fun TabOneScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(bottom = 70.dp) // space for bottom nav
+            .padding(bottom = 78.dp) // space for bottom nav
     ) {
-        SearchSection()
-        BannerSection()
-        CategorySection()
-        ProductSection()
+        Spacer(Modifier.height(8.dp))
+        SearchBar()
+        PillsRow()
+        Banner()
+        CategoryRow()
+        ProductRow()
     }
 }
 
+/* ---------------- SEARCH ---------------- */
+
 @Composable
-private fun SearchSection() {
-    var query by remember { mutableStateOf("") }
+private fun SearchBar() {
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .height(40.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(BgSecondary)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            tint = TextMuted
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = "Search",
+            color = TextMuted,
+            fontSize = 16.sp
+        )
+    }
+}
 
-    Column(modifier = Modifier.padding(16.dp)) {
+/* ---------------- PILLS ---------------- */
 
-        // Search Bar
-        TextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("Search") },
-            leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null)
-            },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFFF5F5F5),
-                unfocusedContainerColor = Color(0xFFF5F5F5),
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
+@Composable
+private fun PillsRow() {
+    val pills = listOf(
+        "Favorites" to Icons.Default.Favorite,
+        "History" to Icons.Default.History,
+        "Following" to Icons.Default.Person
+    )
+
+    LazyRow(
+        modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(pills.size) { index ->
+            Pill(
+                label = pills[index].first,
+                icon = pills[index].second
             )
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Chips
-        val chips = listOf("Favorites", "History", "Following")
-        val icons = listOf(
-            Icons.Default.Favorite,
-            Icons.Default.History,
-            Icons.Default.Person
-        )
-
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(chips.size) { index ->
-                AssistChip(
-                    onClick = {},
-                    label = { Text(chips[index]) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = icons[index],
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun BannerSection() {
+private fun Pill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(
+        modifier = Modifier
+            .border(1.dp, BorderColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/* ---------------- BANNER ---------------- */
+
+@Composable
+private fun Banner() {
     Box(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .height(180.dp)
+            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .height(136.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFEBEBEB))
-            .padding(20.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFECECEC))
     ) {
         Text(
-            text = "Banner Title",
-            fontSize = 22.sp,
-            modifier = Modifier.align(Alignment.CenterStart)
+            text = "Banner title",
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 20.dp),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
         )
 
-        // Pagination dots
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -115,78 +142,104 @@ private fun BannerSection() {
                     modifier = Modifier
                         .size(6.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (index == 0) Color.DarkGray else Color.LightGray
-                        )
+                        .background(if (index == 0) Color.Black else Color.LightGray)
                 )
             }
         }
     }
 }
 
+/* ---------------- CATEGORY ---------------- */
+
 @Composable
-private fun CategorySection() {
-    SectionHeader(title = "Categories")
+private fun CategoryRow() {
+    SectionHeader("Title")
 
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.padding(start = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        items(6) {
+        items(4) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(76.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFEEEEEE))
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text("Title", fontSize = 13.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Title",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
 }
 
+/* ---------------- PRODUCTS ---------------- */
+
 @Composable
-private fun ProductSection() {
-    SectionHeader(title = "Products")
+private fun ProductRow() {
+    SectionHeader("Title")
 
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.padding(start = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(6) {
-            Column(
-                modifier = Modifier.width(160.dp)
-            ) {
+        items(3) {
+            Column(modifier = Modifier.width(148.dp)) {
+
                 Box(
                     modifier = Modifier
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(148.dp)
+                        .clip(RoundedCornerShape(6.dp))
                         .background(Color(0xFFDDDDDD))
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Brand", fontSize = 12.sp, color = Color.Gray)
-                Text("Product name", fontSize = 14.sp)
-                Text("₹199", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Brand",
+                    fontSize = 12.sp,
+                    color = Color(0x80000000)
+                )
+
+                Text(
+                    text = "Product name",
+                    fontSize = 14.sp
+                )
+
+                Text(
+                    text = "$10.99",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
 }
+
+/* ---------------- HEADER ---------------- */
 
 @Composable
 private fun SectionHeader(title: String) {
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
-            fontSize = 18.sp,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
-        Text("›", fontSize = 22.sp)
+        Text(
+            text = "›",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
