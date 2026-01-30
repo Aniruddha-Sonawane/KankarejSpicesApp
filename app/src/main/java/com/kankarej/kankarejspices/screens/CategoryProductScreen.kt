@@ -12,22 +12,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.kankarej.kankarejspices.data.ProductRepository
-import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.navigation.Routes
 import com.kankarej.kankarejspices.screens.tabs.ProductGridItem
-import com.kankarej.kankarejspices.ui.theme.KankarejGreen
+import com.kankarej.kankarejspices.ui.theme.SkeletonProductItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryProductScreen(navController: NavController, categoryName: String) {
     val repo = remember { ProductRepository() }
-    var products by remember { mutableStateOf<List<Product>>(emptyList()) }
+    
+    // REALTIME: Listen to all products
+    val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
 
-    LaunchedEffect(categoryName) {
-        // Fetch products filtered by category
-        // Note: For simplicity, fetching page 0 with high limit or modifying repo to get all by category
-        // Reusing paginated method but effectively acting as a filter
-        products = repo.getProductsPaged(0, 100, categoryName)
+    // FILTER: Filter the realtime list by the selected category
+    val categoryProducts by remember(allProducts, categoryName) {
+        derivedStateOf { 
+            allProducts.filter { it.category.equals(categoryName, ignoreCase = true) }
+        }
     }
 
     Scaffold(
@@ -51,9 +52,18 @@ fun CategoryProductScreen(navController: NavController, categoryName: String) {
                 .fillMaxSize()
                 .background(Color.White)
         ) {
-            items(products) { product ->
-                ProductGridItem(product) {
-                    navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+            
+            // If data is loading (list empty but we expect data), show skeletons
+            // Or if literally 0 items exist for this category, it will just show empty
+            if (allProducts.isEmpty()) {
+                items(6) {
+                    SkeletonProductItem()
+                }
+            } else {
+                items(categoryProducts) { product ->
+                    ProductGridItem(product) {
+                        navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                    }
                 }
             }
         }
