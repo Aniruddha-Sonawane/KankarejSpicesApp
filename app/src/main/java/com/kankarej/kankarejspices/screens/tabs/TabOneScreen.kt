@@ -1,17 +1,18 @@
 package com.kankarej.kankarejspices.screens.tabs
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState // <--- ADDED THIS IMPORT
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -19,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -29,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.imageLoader
 import coil.request.ImageRequest
+// REMOVED: import coil.request.Priority (Fixes build error)
 import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.Category
 import com.kankarej.kankarejspices.model.Product
@@ -38,10 +40,11 @@ import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     
     // Data State
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
@@ -64,13 +67,25 @@ fun TabOneScreen(rootNav: NavController) {
         loading = false
     }
 
+    // --- AGGRESSIVE PRELOADING ---
+    // Removed .priority(Priority.HIGH) to fix build error.
+    // The request still queues immediately, speeding up load times.
+    LaunchedEffect(products) {
+        products.takeLast(PAGE_SIZE).forEach { product ->
+            val request = ImageRequest.Builder(context)
+                .data(product.imageUrl)
+                .build()
+            context.imageLoader.enqueue(request)
+        }
+    }
+
     val gridState = rememberLazyGridState()
     
     // Infinite Scroll Logic
     val shouldLoadMore = remember {
         derivedStateOf {
             val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisibleItem != null && lastVisibleItem.index >= products.size - 4 // Load when near bottom
+            lastVisibleItem != null && lastVisibleItem.index >= products.size - 4
         }
     }
 
@@ -88,62 +103,94 @@ fun TabOneScreen(rootNav: NavController) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            state = gridState,
-            contentPadding = PaddingValues(bottom = 80.dp), // Space for bottom nav
-            modifier = Modifier.fillMaxSize()
-        ) {
-            
-            // 1. Search Bar (Full Width)
-            item(span = { GridItemSpan(2) }) {
-                HomeSearchBar(onClick = { rootNav.navigate(Routes.SEARCH) })
-            }
-
-            // 2. Banner (Full Width)
-            if (products.isNotEmpty()) {
-                item(span = { GridItemSpan(2) }) {
-                    AutoScrollBanner(products.take(5))
-                }
-            }
-
-            // 3. Categories (Full Width - Horizontal Scroll)
-            if (categories.isNotEmpty()) {
-                item(span = { GridItemSpan(2) }) {
-                    CategorySection(categories) { catName ->
-                        rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
-                    }
-                }
-            }
-            
-            // 4. Section Title
-            item(span = { GridItemSpan(2) }) {
-                Text(
-                    text = "Featured Products",
-                    style = MaterialTheme.typography.titleLarge.copy(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text(
+                        "Kankarej Spices", 
                         fontWeight = FontWeight.Bold,
                         color = KankarejGreen
-                    ),
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                )
-            }
-
-            // 5. Product Grid (2 Columns)
-            items(products) { product ->
-                ProductGridItem(product) {
-                    rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                    ) 
+                },
+                actions = {
+                    // Search Button
+                    IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
+                        Icon(
+                            imageVector = Icons.Default.Search, 
+                            contentDescription = "Search",
+                            tint = KankarejGreen
+                        )
+                    }
+                    // Modal/Info Button
+                    IconButton(onClick = { rootNav.navigate(Routes.MODAL) }) {
+                        Icon(
+                            imageVector = Icons.Default.Info, 
+                            contentDescription = "Info",
+                            tint = KankarejGreen
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .background(Color.White)
+        ) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                state = gridState,
+                contentPadding = PaddingValues(bottom = 80.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                
+                // 1. Banner (Full Width, Rectangular, Animated)
+                if (products.isNotEmpty()) {
+                    item(span = { GridItemSpan(2) }) {
+                        FullWidthBannerPager(products.take(5))
+                    }
                 }
-            }
 
-            // 6. Loader at bottom
-            if (loading) {
+                // 2. Categories
+                if (categories.isNotEmpty()) {
+                    item(span = { GridItemSpan(2) }) {
+                        CategorySection(categories) { catName ->
+                            rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
+                        }
+                    }
+                }
+                
+                // 3. Section Title
                 item(span = { GridItemSpan(2) }) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = KankarejGreen)
+                    Text(
+                        text = "Featured Products",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = KankarejGreen
+                        ),
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                }
+
+                // 4. Product Grid
+                items(products) { product ->
+                    ProductGridItem(product) {
+                        rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                    }
+                }
+
+                // 5. Loader
+                if (loading) {
+                    item(span = { GridItemSpan(2) }) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = KankarejGreen)
+                        }
                     }
                 }
             }
@@ -153,51 +200,37 @@ fun TabOneScreen(rootNav: NavController) {
 
 // --- COMPONENTS ---
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeSearchBar(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(4.dp, RoundedCornerShape(50))
-            .background(Color.White, RoundedCornerShape(50))
-            .border(1.dp, KankarejGreen.copy(alpha = 0.3f), RoundedCornerShape(50))
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Search, contentDescription = null, tint = KankarejGreen)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Search products...", color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun AutoScrollBanner(products: List<Product>) {
-    val listState = rememberLazyListState()
+fun FullWidthBannerPager(products: List<Product>) {
+    // Use Int.MAX_VALUE for infinite looping
+    // We start in the middle so the user can scroll left immediately if they want
+    val startIndex = Int.MAX_VALUE / 2
+    val pagerState = rememberPagerState(
+        initialPage = startIndex,
+        pageCount = { Int.MAX_VALUE }
+    )
     
-    // Auto Scroll Logic
+    // Auto Switch every 10 seconds
     LaunchedEffect(Unit) {
-        while(true) {
-            delay(3000)
-            if (listState.firstVisibleItemIndex < products.size - 1) {
-                listState.animateScrollToItem(listState.firstVisibleItemIndex + 1)
-            } else {
-                listState.scrollToItem(0)
+        while (true) {
+            delay(10_000) // 10 seconds
+            try {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+            } catch (e: Exception) {
+                // Handle potential cancellation or bounds issues gracefully
             }
         }
     }
 
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(products) { product ->
+    Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            // Modulo arithmetic to map infinite page index to actual product list
+            val product = products[page % products.size]
+            
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(product.imageUrl)
@@ -205,11 +238,7 @@ fun AutoScrollBanner(products: List<Product>) {
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .width(300.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(1.dp, Color.LightGray, RoundedCornerShape(16.dp))
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -268,7 +297,10 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
         Column {
             Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
                 AsyncImage(
-                    model = product.imageUrl,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(product.imageUrl)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
