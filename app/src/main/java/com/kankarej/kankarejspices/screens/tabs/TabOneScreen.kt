@@ -27,9 +27,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.imageLoader
@@ -94,29 +96,38 @@ fun TabOneScreen(rootNav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.shadow(4.dp), // Restored standard shadow
+                modifier = Modifier.shadow(4.dp),
                 title = {
-                    // Logo Only (No text)
-                    Image(
-                        painter = painterResource(id = R.drawable.app_header_logo),
-                        contentDescription = "Kankarej Logo",
-                        modifier = Modifier
-                            .height(50.dp)
-                            .wrapContentWidth(Alignment.Start),
-                        contentScale = ContentScale.Fit
-                    )
+                    // --- CHANGED: Added Row to hold Logo + Masale Text ---
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = R.drawable.app_header_logo),
+                            contentDescription = "Kankarej Logo",
+                            modifier = Modifier
+                                .height(50.dp)
+                                .wrapContentWidth(Alignment.Start),
+                            contentScale = ContentScale.Fit
+                        )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        Text(
+                            text = "Masale",
+                            fontFamily = FontFamily.Cursive,
+                            fontWeight = FontWeight.Thin, // Very thin font weight
+                            fontSize = 32.sp,
+                            color = KankarejGreen // Same Green Colour
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
-                        // --- RESTORED: Green Icons ---
                         Icon(Icons.Default.Search, "Search", tint = KankarejGreen)
                     }
                     IconButton(onClick = { rootNav.navigate(Routes.MODAL) }) {
-                        // --- RESTORED: Green Icons ---
                         Icon(Icons.Default.Info, "Info", tint = KankarejGreen)
                     }
                 },
-                // --- RESTORED: White Background ---
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
                 )
