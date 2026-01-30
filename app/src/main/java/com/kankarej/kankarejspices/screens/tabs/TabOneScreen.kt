@@ -45,7 +45,7 @@ import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
 
-// --- CHANGED: Slightly deeper light green for better visibility ---
+// This color is used for the body gradient start
 val LightGreenBg = Color(0xFFB9E4C9)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -94,9 +94,9 @@ fun TabOneScreen(rootNav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.shadow(2.dp),
+                modifier = Modifier.shadow(4.dp), // Restored standard shadow
                 title = {
-                    // --- CHANGED: Removed Row and Text, only Image remains ---
+                    // Logo Only (No text)
                     Image(
                         painter = painterResource(id = R.drawable.app_header_logo),
                         contentDescription = "Kankarej Logo",
@@ -108,16 +108,17 @@ fun TabOneScreen(rootNav: NavController) {
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
+                        // --- RESTORED: Green Icons ---
                         Icon(Icons.Default.Search, "Search", tint = KankarejGreen)
                     }
                     IconButton(onClick = { rootNav.navigate(Routes.MODAL) }) {
+                        // --- RESTORED: Green Icons ---
                         Icon(Icons.Default.Info, "Info", tint = KankarejGreen)
                     }
                 },
+                // --- RESTORED: White Background ---
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = LightGreenBg, // Uses new greener color
-                    titleContentColor = Color.Black,
-                    actionIconContentColor = KankarejGreen
+                    containerColor = Color.White
                 )
             )
         }
@@ -125,7 +126,7 @@ fun TabOneScreen(rootNav: NavController) {
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            // Gradient background using the new greener color
+            // Gradient Body (Light Green -> White)
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
