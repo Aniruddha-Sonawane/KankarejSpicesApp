@@ -1,5 +1,6 @@
 package com.kankarej.kankarejspices.screens.tabs
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,9 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +34,7 @@ import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
+import com.kankarej.kankarejspices.R
 import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.Category
 import com.kankarej.kankarejspices.model.Product
@@ -40,6 +44,9 @@ import com.kankarej.kankarejspices.ui.theme.SkeletonHomeScreen
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
+
+// --- CHANGED: Slightly deeper light green for better visibility ---
+val LightGreenBg = Color(0xFFB9E4C9)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -87,13 +94,17 @@ fun TabOneScreen(rootNav: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.shadow(4.dp),
-                title = { 
-                    Text(
-                        "Kankarej Spices", 
-                        fontWeight = FontWeight.Bold,
-                        color = KankarejGreen
-                    ) 
+                modifier = Modifier.shadow(2.dp),
+                title = {
+                    // --- CHANGED: Removed Row and Text, only Image remains ---
+                    Image(
+                        painter = painterResource(id = R.drawable.app_header_logo),
+                        contentDescription = "Kankarej Logo",
+                        modifier = Modifier
+                            .height(50.dp)
+                            .wrapContentWidth(Alignment.Start),
+                        contentScale = ContentScale.Fit
+                    )
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
@@ -103,14 +114,26 @@ fun TabOneScreen(rootNav: NavController) {
                         Icon(Icons.Default.Info, "Info", tint = KankarejGreen)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = LightGreenBg, // Uses new greener color
+                    titleContentColor = Color.Black,
+                    actionIconContentColor = KankarejGreen
+                )
             )
         }
     ) { paddingValues ->
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .background(Color.White)
+            // Gradient background using the new greener color
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        LightGreenBg,
+                        Color.White
+                    )
+                )
+            )
         ) {
             
             // --- SKELETON STATE ---
@@ -139,15 +162,15 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    // 3. Section Title with Green Line
+                    // 3. Featured Products Title with Thin Black Line
                     item(span = { GridItemSpan(2) }) {
                         Column {
-                            // --- GREEN LINE ---
+                            // --- THIN BLACK LINE ---
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(2.dp)
-                                    .background(KankarejGreen)
+                                    .height(0.5.dp)
+                                    .background(Color.Black)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             
@@ -234,19 +257,20 @@ fun FullWidthBannerPager(products: List<Product>) {
 @Composable
 fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     Column {
-        // --- GREEN LINE ---
+        // --- THIN BLACK LINE ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(2.dp)
-                .background(KankarejGreen)
+                .height(0.5.dp)
+                .background(Color.Black)
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        // REDUCED PADDING
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "Categories",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = KankarejGreen),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -277,7 +301,8 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
                 }
             }
         }
-        Spacer(Modifier.height(16.dp))
+        // REDUCED PADDING
+        Spacer(Modifier.height(8.dp))
     }
 }
 
