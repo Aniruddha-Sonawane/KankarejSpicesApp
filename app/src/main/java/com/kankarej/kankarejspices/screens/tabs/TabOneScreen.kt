@@ -28,8 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import coil.compose.SubcomposeAsyncImage // NEW: Allows loading state
+import coil.compose.SubcomposeAsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.kankarej.kankarejspices.data.ProductRepository
@@ -40,6 +39,23 @@ import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 import com.kankarej.kankarejspices.ui.theme.SkeletonProductItem
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import kotlinx.coroutines.delay
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
+// --- MAGIC HELPER FUNCTION ---
+// Converts slow Drive links into fast, cached, resized WebP images via wsrv.nl
+fun getOptimizedUrl(originalUrl: String): String {
+    if (originalUrl.contains("drive.google.com")) {
+        // We strip the "https://" part to fit wsrv.nl format cleanly
+        val cleanUrl = originalUrl.replace("https://", "")
+        val encodedUrl = URLEncoder.encode(cleanUrl, StandardCharsets.UTF_8.toString())
+        // w=600: Resize to 600px width (perfect for mobile)
+        // output=webp: Convert to WebP (much smaller file size)
+        // q=80: Quality 80% (saves bandwidth)
+        return "https://wsrv.nl/?url=$encodedUrl&w=600&output=webp&q=80"
+    }
+    return originalUrl
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -47,7 +63,6 @@ fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
     val context = LocalContext.current
     
-    // REALTIME FLOWS
     val categories by repo.getCategoriesFlow().collectAsState(initial = emptyList())
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     
@@ -57,14 +72,14 @@ fun TabOneScreen(rootNav: NavController) {
         derivedStateOf { allProducts.take(displayedCount) }
     }
 
-    // --- AGGRESSIVE PRELOADING (FIRST 20) ---
+    // --- AGGRESSIVE PRELOADING ---
     LaunchedEffect(allProducts) {
         if (allProducts.isNotEmpty()) {
-            // Preload 20 items immediately
             allProducts.take(20).forEach { product ->
+                // USE OPTIMIZED URL FOR PRELOADING
+                val fastUrl = getOptimizedUrl(product.imageUrl)
                 val request = ImageRequest.Builder(context)
-                    .data(product.imageUrl)
-                    .size(600) // Optimization: Ask for smaller size if possible (server dependent)
+                    .data(fastUrl)
                     .build()
                 context.imageLoader.enqueue(request)
             }
@@ -156,8 +171,6 @@ fun TabOneScreen(rootNav: NavController) {
     }
 }
 
-// --- UPDATED COMPONENTS ---
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullWidthBannerPager(products: List<Product>) {
@@ -174,17 +187,15 @@ fun FullWidthBannerPager(products: List<Product>) {
     Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFEEEEEE))) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val product = products[page % products.size]
-            SubcomposeAsyncImage( // Better loading handling
+            SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(product.imageUrl)
+                    .data(getOptimizedUrl(product.imageUrl)) // <--- OPTIMIZED URL
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-                loading = { 
-                    Box(Modifier.fillMaxSize().shimmerEffect()) // Shimmer while loading banner
-                }
+                loading = { Box(Modifier.fillMaxSize().shimmerEffect()) }
             )
         }
     }
@@ -208,7 +219,7 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
                     modifier = Modifier.clickable { onCategoryClick(category.name) }
                 ) {
                     SubcomposeAsyncImage(
-                        model = category.imageUrl,
+                        model = getOptimizedUrl(category.imageUrl), // <--- OPTIMIZED URL
                         contentDescription = category.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -243,17 +254,15 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
     ) {
         Column {
             Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
-                // Use SubcomposeAsyncImage to show a placeholder color/shimmer
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(product.imageUrl)
+                        .data(getOptimizedUrl(product.imageUrl)) // <--- OPTIMIZED URL
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     loading = {
-                        // While image downloads, show this nice gray box
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -262,7 +271,6 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                         )
                     },
                     error = {
-                        // If download fails, show a gray box with an icon (optional)
                         Box(Modifier.fillMaxSize().background(Color.LightGray))
                     }
                 )
