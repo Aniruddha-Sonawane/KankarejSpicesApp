@@ -47,18 +47,18 @@ fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
     val context = LocalContext.current
     
-    // REALTIME FLOWS: Automatically updates when Firebase changes
+    // REALTIME FLOWS
     val categories by repo.getCategoriesFlow().collectAsState(initial = emptyList())
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     
-    // Local Pagination Logic
+    // Pagination
     var displayedCount by remember { mutableIntStateOf(20) }
     
     val displayedProducts by remember(allProducts, displayedCount) {
         derivedStateOf { allProducts.take(displayedCount) }
     }
 
-    // AGGRESSIVE PRELOADING: Preload the FIRST 20 images using the optimized URL
+    // Preloading
     LaunchedEffect(allProducts) {
         if (allProducts.isNotEmpty()) {
             allProducts.take(20).forEach { product ->
@@ -71,17 +71,15 @@ fun TabOneScreen(rootNav: NavController) {
     }
 
     val gridState = rememberLazyGridState()
-    
-    // Infinite Scroll Logic
-    val shouldLoadMore = remember {
+    val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
             lastVisibleItem != null && lastVisibleItem.index >= displayedProducts.size - 4
         }
     }
 
-    LaunchedEffect(shouldLoadMore.value) {
-        if (shouldLoadMore.value && displayedCount < allProducts.size) {
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && displayedCount < allProducts.size) {
             displayedCount += 20
         }
     }
@@ -116,7 +114,6 @@ fun TabOneScreen(rootNav: NavController) {
         ) {
             
             // --- SKELETON STATE ---
-            // If we have no data yet (initial load), show the full skeleton screen
             if (allProducts.isEmpty() && categories.isEmpty()) {
                 SkeletonHomeScreen()
             } else {
@@ -128,7 +125,7 @@ fun TabOneScreen(rootNav: NavController) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     
-                    // 1. Banner (Full Width)
+                    // 1. Banner
                     item(span = { GridItemSpan(2) }) {
                         FullWidthBannerPager(allProducts.take(5))
                     }
@@ -142,16 +139,27 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    // 3. Section Title
+                    // 3. Section Title with Green Line
                     item(span = { GridItemSpan(2) }) {
-                        Text(
-                            text = "Featured Products",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = KankarejGreen
-                            ),
-                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                        )
+                        Column {
+                            // --- GREEN LINE ---
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .background(KankarejGreen)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Featured Products",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = KankarejGreen
+                                ),
+                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                            )
+                        }
                     }
 
                     // 4. Products Grid
@@ -161,7 +169,7 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    // 5. Pagination Loader at bottom
+                    // 5. Loader
                     if (displayedCount < allProducts.size) {
                          item(span = { GridItemSpan(2) }) {
                             Box(
@@ -191,20 +199,18 @@ fun FullWidthBannerPager(products: List<Product>) {
         pageCount = { Int.MAX_VALUE }
     )
     
-    // Auto Scroll Timer (10 seconds)
+    // Auto Scroll Timer
     LaunchedEffect(Unit) {
         while (true) {
             delay(10_000)
-            try { 
-                pagerState.animateScrollToPage(pagerState.currentPage + 1) 
-            } catch (_: Exception) { }
+            try { pagerState.animateScrollToPage(pagerState.currentPage + 1) } catch (_: Exception) { }
         }
     }
 
     Box(modifier = Modifier
         .fillMaxWidth()
         .height(220.dp)
-        .background(Color(0xFFEEEEEE)) // Placeholder background
+        .background(Color(0xFFEEEEEE))
     ) {
         HorizontalPager(
             state = pagerState,
@@ -213,15 +219,13 @@ fun FullWidthBannerPager(products: List<Product>) {
             val product = products[page % products.size]
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(getOptimizedUrl(product.imageUrl)) // Use Proxy URL
+                    .data(getOptimizedUrl(product.imageUrl))
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-                loading = { 
-                    Box(Modifier.fillMaxSize().shimmerEffect()) 
-                }
+                loading = { Box(Modifier.fillMaxSize().shimmerEffect()) }
             )
         }
     }
@@ -230,6 +234,15 @@ fun FullWidthBannerPager(products: List<Product>) {
 @Composable
 fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     Column {
+        // --- GREEN LINE ---
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(KankarejGreen)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
             text = "Categories",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = KankarejGreen),
@@ -245,16 +258,14 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
                     modifier = Modifier.clickable { onCategoryClick(category.name) }
                 ) {
                     SubcomposeAsyncImage(
-                        model = getOptimizedUrl(category.imageUrl), // Use Proxy URL
+                        model = getOptimizedUrl(category.imageUrl),
                         contentDescription = category.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(70.dp)
                             .clip(CircleShape)
                             .border(2.dp, KankarejGreen, CircleShape),
-                        loading = { 
-                            Box(Modifier.fillMaxSize().shimmerEffect())
-                        }
+                        loading = { Box(Modifier.fillMaxSize().shimmerEffect()) }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -284,14 +295,13 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
             Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(getOptimizedUrl(product.imageUrl)) // Use Proxy URL
+                        .data(getOptimizedUrl(product.imageUrl))
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     loading = {
-                        // While image downloads, show this nice gray box
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -300,7 +310,6 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                         )
                     },
                     error = {
-                        // If download fails, show a gray box
                         Box(Modifier.fillMaxSize().background(Color.LightGray))
                     }
                 )
