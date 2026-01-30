@@ -10,19 +10,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
+import com.kankarej.kankarejspices.util.getOptimizedUrl // <--- IMPORT THIS
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +32,6 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
     val repo = remember { ProductRepository() }
     var product by remember { mutableStateOf<Product?>(null) }
     
-    // Simulate slight delay to show skeleton if needed, or just fetch
     LaunchedEffect(productName) {
         product = repo.getProductByName(productName)
     }
@@ -38,7 +39,7 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                modifier = Modifier.shadow(4.dp), // Shadow
+                modifier = Modifier.shadow(4.dp),
                 title = { Text(product?.name ?: "Loading...", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -52,7 +53,7 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
             if (product != null) {
                 Surface(modifier = Modifier.shadow(8.dp), color = Color.White) {
                     Button(
-                        onClick = { /* TODO */ },
+                        onClick = { /* TODO: Add to cart */ },
                         colors = ButtonDefaults.buttonColors(containerColor = KankarejGreen),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -75,11 +76,20 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
         ) {
             if (product != null) {
                 // REAL CONTENT
-                AsyncImage(
-                    model = product!!.imageUrl,
+                SubcomposeAsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(getOptimizedUrl(product!!.imageUrl, width = 800)) // <--- OPTIMIZED URL (High Quality)
+                        .crossfade(true)
+                        .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().height(300.dp)
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    loading = {
+                        Box(Modifier.fillMaxSize().shimmerEffect())
+                    },
+                    error = {
+                        Box(Modifier.fillMaxSize().background(Color.LightGray))
+                    }
                 )
 
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -98,13 +108,11 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
                 // SKELETON CONTENT
                 Box(Modifier.fillMaxWidth().height(300.dp).shimmerEffect())
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Box(Modifier.width(100.dp).height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    Box(Modifier.width(100.dp).height(20.dp).shimmerEffect())
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth(0.7f).height(30.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    Box(Modifier.fillMaxWidth(0.7f).height(30.dp).shimmerEffect())
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.width(80.dp).height(24.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
-                    Spacer(Modifier.height(24.dp))
-                    Box(Modifier.fillMaxWidth().height(100.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    Box(Modifier.width(80.dp).height(24.dp).shimmerEffect())
                 }
             }
         }

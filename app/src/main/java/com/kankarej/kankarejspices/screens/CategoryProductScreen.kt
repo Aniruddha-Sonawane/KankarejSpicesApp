@@ -20,11 +20,8 @@ import com.kankarej.kankarejspices.ui.theme.SkeletonProductItem
 @Composable
 fun CategoryProductScreen(navController: NavController, categoryName: String) {
     val repo = remember { ProductRepository() }
-    
-    // REALTIME: Listen to all products
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
 
-    // FILTER: Filter the realtime list by the selected category
     val categoryProducts by remember(allProducts, categoryName) {
         derivedStateOf { 
             allProducts.filter { it.category.equals(categoryName, ignoreCase = true) }
@@ -52,15 +49,15 @@ fun CategoryProductScreen(navController: NavController, categoryName: String) {
                 .fillMaxSize()
                 .background(Color.White)
         ) {
-            
-            // If data is loading (list empty but we expect data), show skeletons
-            // Or if literally 0 items exist for this category, it will just show empty
             if (allProducts.isEmpty()) {
-                items(6) {
-                    SkeletonProductItem()
-                }
+                items(6) { SkeletonProductItem() }
             } else {
                 items(categoryProducts) { product ->
+                    // ProductGridItem ALREADY uses getOptimizedUrl inside TabOneScreen.kt?
+                    // NOTE: If ProductGridItem is shared, we must ensure it uses the util function.
+                    // Assuming ProductGridItem is imported from TabOneScreen or shared.
+                    // If you haven't moved ProductGridItem to a shared file, it's safer to use the one in TabOneScreen 
+                    // and Update TabOneScreen to use the new Utils file.
                     ProductGridItem(product) {
                         navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                     }
