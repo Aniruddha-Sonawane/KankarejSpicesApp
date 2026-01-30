@@ -1,24 +1,119 @@
 {
-  "categories": {
-    "spices": {
-      "name": "Spices",
-      "order": 1
+  "products": {
+    "LKG": {
+      "lkg_chilli": {
+        "name": "LKG Chilli Powder",
+        "category": "LKG",
+        "price": 180,
+        "rating": 4.6,
+        "imageUrl": "https://drive.google.com/uc?id=1MBJG-Xs97_oFSJFxmB2jVpDkFxFQoA0H&export=download"
+      },
+      "lkg_coriander": {
+        "name": "LKG Coriander Powder",
+        "category": "LKG",
+        "price": 160,
+        "rating": 4.5,
+        "imageUrl": "https://drive.google.com/uc?id=1xEo8QjTj3nXU70qa8lWD3q1-MWo5n1z_&export=download"
+      },
+      "lkg_turmeric": {
+        "name": "LKG Turmeric Powder",
+        "category": "LKG",
+        "price": 150,
+        "rating": 4.4,
+        "imageUrl": "https://drive.google.com/uc?id=1Uo3VM20jLLjv4kWiI_K5Q3UGxOSadh4x&export=download"
+      }
+    },
+
+    "CSC": {
+      "csc_chilli": {
+        "name": "CSC Chilli Powder",
+        "category": "CSC",
+        "price": 140,
+        "rating": 4.5,
+        "imageUrl": "https://drive.google.com/uc?id=1EuMB10c9subRN_I24et86YJOPgWV6Yhs&export=download"
+      },
+      "csc_coriander": {
+        "name": "CSC Coriander Powder",
+        "category": "CSC",
+        "price": 130,
+        "rating": 4.4,
+        "imageUrl": "https://drive.google.com/uc?id=1LAVXhF5sFwMcwel9ieLLnfEJWA_7-sc3&export=download"
+      },
+      "csc_garam": {
+        "name": "CSC Garam Masala",
+        "category": "CSC",
+        "price": 170,
+        "rating": 4.6,
+        "imageUrl": "https://drive.google.com/uc?id=1hwud2CugCXTSeJpCXsMtS3eeAn7qAC6J&export=download"
+      },
+      "csc_turmeric": {
+        "name": "CSC Turmeric Powder",
+        "category": "CSC",
+        "price": 135,
+        "rating": 4.3,
+        "imageUrl": "https://drive.google.com/uc?id=1pqGzX8B0AtobyKs_jMizWcJTS8tZIcay&export=download"
+      }
+    },
+
+    "KNK": {
+      "knk_biryani": {
+        "name": "KNK Biryani Masala",
+        "category": "KNK",
+        "price": 220,
+        "rating": 4.8,
+        "imageUrl": "https://drive.google.com/uc?id=1NyU262ZgC4kGnx0uEem_nB8fBsA4K2by&export=download"
+      },
+      "knk_byadgi": {
+        "name": "KNK Byadgi Chilli",
+        "category": "KNK",
+        "price": 240,
+        "rating": 4.7,
+        "imageUrl": "https://drive.google.com/uc?id=1Y5dNLaITV3F-ShNyHkaZRq3jP9keWPcO&export=download"
+      },
+      "knk_chicken": {
+        "name": "KNK Chicken Masala",
+        "category": "KNK",
+        "price": 230,
+        "rating": 4.6,
+        "imageUrl": "https://drive.google.com/uc?id=1aQxrall1wm--b_Hz1uUNoR9N_-kwvOAl&export=download"
+      },
+      "knk_chilli": {
+        "name": "KNK Chilli Powder",
+        "category": "KNK",
+        "price": 210,
+        "rating": 4.5,
+        "imageUrl": "https://drive.google.com/uc?id=1R0g7b6PA5CjOkwPB9arSuN-Zu3tIotLE&export=download"
+      },
+      "knk_garam": {
+        "name": "KNK Garam Masala",
+        "category": "KNK",
+        "price": 225,
+        "rating": 4.7,
+        "imageUrl": "https://drive.google.com/uc?id=19FYXOYFtb8Yb-QLDOCQy87xsJJVoEwoa&export=download"
+      },
+      "knk_kasurimethi": {
+        "name": "KNK Kasuri Methi",
+        "category": "KNK",
+        "price": 200,
+        "rating": 4.4,
+        "imageUrl": "https://drive.google.com/uc?id=1kY_xoSIZmwSB_WZavz1MPFGi6oj_gKA7&export=download"
+      }
     }
   },
-  "products": {
-    "p1": {
-      "name": "Red Chilli Powder",
-      "price": 120,
-      "category": "spices",
-      "rating": 4.6,
-      "imageUrl": "https://pub-xxxxx.r2.dev/products/chilli.jpg"
+  "categories": {
+    "LKG": {
+      "name": "LKG",
+      "imageUrl": "https://drive.google.com/uc?id=1MBJG-Xs97_oFSJFxmB2jVpDkFxFQoA0H&export=download"
     },
-    "p2": {
-      "name": "Turmeric Powder",
-      "price": 90,
-      "category": "spices",
-      "rating": 4.3,
-      "imageUrl": "https://pub-xxxxx.r2.dev/products/turmeric.jpg"
+    "CSC": {
+      "name": "CSC",
+      "imageUrl": "https://drive.google.com/uc?id=1xEo8QjTj3nXU70qa8lWD3q1-MWo5n1z_&export=download"
+    },
+    "KNK": {
+      "name": "KNK",
+      "imageUrl": "https://drive.google.com/uc?id=1NyU262ZgC4kGnx0uEem_nB8fBsA4K2by&export=download"
     }
   }
 }
+
+

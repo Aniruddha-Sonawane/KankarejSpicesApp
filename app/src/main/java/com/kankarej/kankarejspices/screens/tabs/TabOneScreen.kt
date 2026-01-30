@@ -2,121 +2,148 @@ package com.kankarej.kankarejspices.screens.tabs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState // <--- ADDED THIS IMPORT
+import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.kankarej.kankarejspices.data.ProductRepository
+import com.kankarej.kankarejspices.model.Category
 import com.kankarej.kankarejspices.model.Product
-
-private val BgSecondary = Color(0xFFF5F5F5)
-private val BorderColor = Color(0xFFE6E6E6)
-private val TextMuted = Color(0xFF828282)
-
-@Composable
-fun TabOneScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 78.dp) // space for bottom nav
-    ) {
-        Spacer(Modifier.height(8.dp))
-        SearchBar()
-        PillsRow()
-        Banner()
-        CategoryRow()
-
-        // ✅ REAL PRODUCTS FROM FIREBASE
-        ProductScreen()
-    }
-}
-
-/* ---------------- FIREBASE PRODUCT LIST ---------------- */
+import com.kankarej.kankarejspices.navigation.Routes
+import com.kankarej.kankarejspices.ui.theme.KankarejGreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-private fun ProductScreen() {
+fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
+    val scope = rememberCoroutineScope()
+    
+    // Data State
+    var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    
+    // Pagination State
+    var offset by remember { mutableIntStateOf(0) }
+    var loading by remember { mutableStateOf(false) }
+    var endReached by remember { mutableStateOf(false) }
+    val PAGE_SIZE = 20
 
+    // Initial Load
     LaunchedEffect(Unit) {
-        try {
-            products = repo.getProducts()
-        } catch (e: Exception) {
-    e.printStackTrace()
-    error = e.message ?: "Unknown error"
-}
-finally {
-            isLoading = false
+        loading = true
+        val cats = repo.getCategories()
+        val prods = repo.getProductsPaged(0, PAGE_SIZE)
+        categories = cats
+        products = prods
+        offset = prods.size
+        loading = false
+    }
+
+    val gridState = rememberLazyGridState()
+    
+    // Infinite Scroll Logic
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisibleItem != null && lastVisibleItem.index >= products.size - 4 // Load when near bottom
         }
     }
 
-    when {
-        isLoading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && !loading && !endReached) {
+            loading = true
+            val newItems = repo.getProductsPaged(offset, PAGE_SIZE)
+            if (newItems.isEmpty()) {
+                endReached = true
+            } else {
+                products = products + newItems
+                offset += newItems.size
             }
+            loading = false
         }
+    }
 
-        error != null -> {
-            Text(
-                text = "Failed to load products: $error",
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
+    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            state = gridState,
+            contentPadding = PaddingValues(bottom = 80.dp), // Space for bottom nav
+            modifier = Modifier.fillMaxSize()
+        ) {
+            
+            // 1. Search Bar (Full Width)
+            item(span = { GridItemSpan(2) }) {
+                HomeSearchBar(onClick = { rootNav.navigate(Routes.SEARCH) })
+            }
 
-        else -> {
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(products.size) { index ->
-                    val product = products[index]
+            // 2. Banner (Full Width)
+            if (products.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    AutoScrollBanner(products.take(5))
+                }
+            }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+            // 3. Categories (Full Width - Horizontal Scroll)
+            if (categories.isNotEmpty()) {
+                item(span = { GridItemSpan(2) }) {
+                    CategorySection(categories) { catName ->
+                        rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
+                    }
+                }
+            }
+            
+            // 4. Section Title
+            item(span = { GridItemSpan(2) }) {
+                Text(
+                    text = "Featured Products",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = KankarejGreen
+                    ),
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                )
+            }
+
+            // 5. Product Grid (2 Columns)
+            items(products) { product ->
+                ProductGridItem(product) {
+                    rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                }
+            }
+
+            // 6. Loader at bottom
+            if (loading) {
+                item(span = { GridItemSpan(2) }) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        AsyncImage(
-                            model = product.imageUrl,
-                            contentDescription = product.name,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-
-                        Spacer(Modifier.width(12.dp))
-
-                        Column {
-                            Text(
-                                text = product.name,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text("₹${product.price}")
-                            Text("Rating: ${product.rating}")
-                        }
+                        CircularProgressIndicator(color = KankarejGreen)
                     }
                 }
             }
@@ -124,146 +151,153 @@ finally {
     }
 }
 
-/* ---------------- SEARCH ---------------- */
+// --- COMPONENTS ---
 
 @Composable
-private fun SearchBar() {
-    Row(
+fun HomeSearchBar(onClick: () -> Unit) {
+    Box(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .height(40.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(BgSecondary)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(16.dp)
+            .shadow(4.dp, RoundedCornerShape(50))
+            .background(Color.White, RoundedCornerShape(50))
+            .border(1.dp, KankarejGreen.copy(alpha = 0.3f), RoundedCornerShape(50))
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = null,
-            tint = TextMuted
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = "Search",
-            color = TextMuted,
-            fontSize = 16.sp
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, contentDescription = null, tint = KankarejGreen)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Search products...", color = Color.Gray)
+        }
     }
 }
 
-/* ---------------- PILLS ---------------- */
-
 @Composable
-private fun PillsRow() {
-    val pills = listOf(
-        "Favorites" to Icons.Default.Favorite,
-        "History" to Icons.Default.History,
-        "Following" to Icons.Default.Person
-    )
+fun AutoScrollBanner(products: List<Product>) {
+    val listState = rememberLazyListState()
+    
+    // Auto Scroll Logic
+    LaunchedEffect(Unit) {
+        while(true) {
+            delay(3000)
+            if (listState.firstVisibleItemIndex < products.size - 1) {
+                listState.animateScrollToItem(listState.firstVisibleItemIndex + 1)
+            } else {
+                listState.scrollToItem(0)
+            }
+        }
+    }
 
     LazyRow(
-        modifier = Modifier.padding(start = 16.dp, top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        state = listState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(pills.size) { index ->
-            Pill(
-                label = pills[index].first,
-                icon = pills[index].second
+        items(products) { product ->
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(product.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .width(300.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, Color.LightGray, RoundedCornerShape(16.dp))
             )
         }
     }
 }
 
 @Composable
-private fun Pill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Row(
-        modifier = Modifier
-            .border(1.dp, BorderColor, RoundedCornerShape(6.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(4.dp))
+fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
+    Column {
         Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
+            text = "Categories",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = KankarejGreen),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-    }
-}
-
-/* ---------------- BANNER ---------------- */
-
-@Composable
-private fun Banner() {
-    Box(
-        modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .height(136.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFECECEC))
-    ) {
-        Text(
-            text = "Banner title",
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 20.dp),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-/* ---------------- CATEGORY ---------------- */
-
-@Composable
-private fun CategoryRow() {
-    SectionHeader("Title")
-
-    LazyRow(
-        modifier = Modifier.padding(start = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        items(4) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEEEEEE))
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Title",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(categories) { category ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { onCategoryClick(category.name) }
+                ) {
+                    AsyncImage(
+                        model = category.imageUrl,
+                        contentDescription = category.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, KankarejGreen, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = category.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
+        Spacer(Modifier.height(16.dp))
     }
 }
 
-/* ---------------- HEADER ---------------- */
-
 @Composable
-private fun SectionHeader(title: String) {
-    Row(
+fun ProductGridItem(product: Product, onClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp),
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(8.dp)
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "›",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Column {
+            Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = product.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = Color.Black
+                )
+                Text(
+                    text = product.category,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "₹${product.price}",
+                        style = MaterialTheme.typography.bodyLarge.copy(color = KankarejGreen, fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                    Text(text = "${product.rating}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
     }
 }
