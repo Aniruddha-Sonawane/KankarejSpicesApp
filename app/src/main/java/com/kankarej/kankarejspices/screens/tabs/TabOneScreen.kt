@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -31,12 +32,13 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
-// REMOVED: import coil.request.Priority (Fixes build error)
 import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.Category
 import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.navigation.Routes
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
+import com.kankarej.kankarejspices.ui.theme.SkeletonProductItem
+import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -50,15 +52,14 @@ fun TabOneScreen(rootNav: NavController) {
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     
-    // Pagination State
+    // Pagination & Loading State
     var offset by remember { mutableIntStateOf(0) }
-    var loading by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) } // Start true for skeleton
     var endReached by remember { mutableStateOf(false) }
     val PAGE_SIZE = 20
 
     // Initial Load
     LaunchedEffect(Unit) {
-        loading = true
         val cats = repo.getCategories()
         val prods = repo.getProductsPaged(0, PAGE_SIZE)
         categories = cats
@@ -67,9 +68,7 @@ fun TabOneScreen(rootNav: NavController) {
         loading = false
     }
 
-    // --- AGGRESSIVE PRELOADING ---
-    // Removed .priority(Priority.HIGH) to fix build error.
-    // The request still queues immediately, speeding up load times.
+    // Preloading Logic
     LaunchedEffect(products) {
         products.takeLast(PAGE_SIZE).forEach { product ->
             val request = ImageRequest.Builder(context)
@@ -90,7 +89,7 @@ fun TabOneScreen(rootNav: NavController) {
     }
 
     LaunchedEffect(shouldLoadMore.value) {
-        if (shouldLoadMore.value && !loading && !endReached) {
+        if (shouldLoadMore.value && !loading && !endReached && products.isNotEmpty()) {
             loading = true
             val newItems = repo.getProductsPaged(offset, PAGE_SIZE)
             if (newItems.isEmpty()) {
@@ -105,7 +104,9 @@ fun TabOneScreen(rootNav: NavController) {
 
     Scaffold(
         topBar = {
+            // ADDED SHADOW HERE
             TopAppBar(
+                modifier = Modifier.shadow(4.dp),
                 title = { 
                     Text(
                         "Kankarej Spices", 
@@ -114,21 +115,11 @@ fun TabOneScreen(rootNav: NavController) {
                     ) 
                 },
                 actions = {
-                    // Search Button
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
-                        Icon(
-                            imageVector = Icons.Default.Search, 
-                            contentDescription = "Search",
-                            tint = KankarejGreen
-                        )
+                        Icon(Icons.Default.Search, "Search", tint = KankarejGreen)
                     }
-                    // Modal/Info Button
                     IconButton(onClick = { rootNav.navigate(Routes.MODAL) }) {
-                        Icon(
-                            imageVector = Icons.Default.Info, 
-                            contentDescription = "Info",
-                            tint = KankarejGreen
-                        )
+                        Icon(Icons.Default.Info, "Info", tint = KankarejGreen)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
@@ -147,49 +138,59 @@ fun TabOneScreen(rootNav: NavController) {
                 modifier = Modifier.fillMaxSize()
             ) {
                 
-                // 1. Banner (Full Width, Rectangular, Animated)
-                if (products.isNotEmpty()) {
-                    item(span = { GridItemSpan(2) }) {
-                        FullWidthBannerPager(products.take(5))
+                // --- SKELETON STATE (If loading and no data) ---
+                if (loading && products.isEmpty()) {
+                    // Show 8 dummy skeleton items
+                    items(8) {
+                        SkeletonProductItem()
                     }
-                }
-
-                // 2. Categories
-                if (categories.isNotEmpty()) {
-                    item(span = { GridItemSpan(2) }) {
-                        CategorySection(categories) { catName ->
-                            rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
+                } else {
+                    // --- REAL CONTENT ---
+                    
+                    // 1. Banner
+                    if (products.isNotEmpty()) {
+                        item(span = { GridItemSpan(2) }) {
+                            FullWidthBannerPager(products.take(5))
                         }
                     }
-                }
-                
-                // 3. Section Title
-                item(span = { GridItemSpan(2) }) {
-                    Text(
-                        text = "Featured Products",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = KankarejGreen
-                        ),
-                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
-                    )
-                }
 
-                // 4. Product Grid
-                items(products) { product ->
-                    ProductGridItem(product) {
-                        rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                    // 2. Categories
+                    if (categories.isNotEmpty()) {
+                        item(span = { GridItemSpan(2) }) {
+                            CategorySection(categories) { catName ->
+                                rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
+                            }
+                        }
                     }
-                }
-
-                // 5. Loader
-                if (loading) {
+                    
+                    // 3. Section Title
                     item(span = { GridItemSpan(2) }) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = KankarejGreen)
+                        Text(
+                            text = "Featured Products",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = KankarejGreen
+                            ),
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+
+                    // 4. Products
+                    items(products) { product ->
+                        ProductGridItem(product) {
+                            rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
+                        }
+                    }
+
+                    // 5. Pagination Loader (at bottom)
+                    if (loading && products.isNotEmpty()) {
+                        item(span = { GridItemSpan(2) }) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = KankarejGreen)
+                            }
                         }
                     }
                 }
@@ -203,23 +204,16 @@ fun TabOneScreen(rootNav: NavController) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullWidthBannerPager(products: List<Product>) {
-    // Use Int.MAX_VALUE for infinite looping
-    // We start in the middle so the user can scroll left immediately if they want
     val startIndex = Int.MAX_VALUE / 2
     val pagerState = rememberPagerState(
         initialPage = startIndex,
         pageCount = { Int.MAX_VALUE }
     )
     
-    // Auto Switch every 10 seconds
     LaunchedEffect(Unit) {
         while (true) {
-            delay(10_000) // 10 seconds
-            try {
-                pagerState.animateScrollToPage(pagerState.currentPage + 1)
-            } catch (e: Exception) {
-                // Handle potential cancellation or bounds issues gracefully
-            }
+            delay(10_000)
+            try { pagerState.animateScrollToPage(pagerState.currentPage + 1) } catch (_: Exception) {}
         }
     }
 
@@ -228,9 +222,7 @@ fun FullWidthBannerPager(products: List<Product>) {
             state = pagerState,
             modifier = Modifier.fillMaxSize()
         ) { page ->
-            // Modulo arithmetic to map infinite page index to actual product list
             val product = products[page % products.size]
-            
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(product.imageUrl)
