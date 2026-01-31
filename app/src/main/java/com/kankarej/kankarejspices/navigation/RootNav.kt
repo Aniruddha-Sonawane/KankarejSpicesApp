@@ -7,14 +7,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kankarej.kankarejspices.screens.CategoryProductScreen
-import com.kankarej.kankarejspices.screens.ModalScreen
-import com.kankarej.kankarejspices.screens.NotFoundScreen
 import com.kankarej.kankarejspices.screens.ProductDetailScreen
 import com.kankarej.kankarejspices.screens.SearchScreen
 
 object Routes {
     const val TABS = "tabs"
-    const val MODAL = "modal"
+    // const val MODAL = "modal" // Removed: Settings is now a tab
     const val PRODUCT_DETAIL = "product_detail/{productName}"
     const val CATEGORY_LIST = "category_list/{categoryName}"
     const val SEARCH = "search"
@@ -22,6 +20,7 @@ object Routes {
 
 @Composable
 fun RootNav(
+    darkTheme: Boolean,
     onToggleTheme: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -31,11 +30,12 @@ fun RootNav(
         startDestination = Routes.TABS
     ) {
         composable(Routes.TABS) {
-            TabsNav(rootNav = navController, onToggleTheme = onToggleTheme)
-        }
-        
-        composable(Routes.MODAL) {
-            ModalScreen()
+            // Pass darkTheme state to TabsNav
+            TabsNav(
+                rootNav = navController, 
+                darkTheme = darkTheme, 
+                onToggleTheme = onToggleTheme
+            )
         }
         
         composable(Routes.SEARCH) {

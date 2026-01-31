@@ -6,7 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.SupportAgent // Call Center Icon
+import androidx.compose.material.icons.filled.Settings // Import Settings Icon
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,7 +15,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.kankarej.kankarejspices.screens.ContactScreen // New Import
+import com.kankarej.kankarejspices.screens.ContactScreen
+import com.kankarej.kankarejspices.screens.ModalScreen // Using ModalScreen as Settings
 import com.kankarej.kankarejspices.screens.tabs.TabOneScreen
 import com.kankarej.kankarejspices.screens.tabs.TabTwoScreen
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
@@ -22,6 +24,7 @@ import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 @Composable
 fun TabsNav(
     rootNav: NavController,
+    darkTheme: Boolean, // Received from RootNav
     onToggleTheme: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -30,10 +33,10 @@ fun TabsNav(
         bottomBar = {
             Surface(
                 modifier = Modifier.shadow(elevation = 8.dp),
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             ) {
                 NavigationBar(
-                    containerColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     tonalElevation = 0.dp
                 ) {
                     // Tab 1: Home
@@ -45,7 +48,7 @@ fun TabsNav(
                         colors = navColors()
                     )
                     
-                    // Tab 2: Orders (Placeholder)
+                    // Tab 2: Orders
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
@@ -54,12 +57,21 @@ fun TabsNav(
                         colors = navColors()
                     )
 
-                    // Tab 3: Contact (New)
+                    // Tab 3: Contact
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
                         label = { Text("Contact") },
-                        icon = { Icon(Icons.Default.SupportAgent, null) }, // Call Center Icon
+                        icon = { Icon(Icons.Default.SupportAgent, null) },
+                        colors = navColors()
+                    )
+
+                    // Tab 4: Settings (Right Side)
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
+                        label = { Text("Settings") },
+                        icon = { Icon(Icons.Default.Settings, null) },
                         colors = navColors()
                     )
                 }
@@ -74,7 +86,12 @@ fun TabsNav(
             when (selectedTab) {
                 0 -> TabOneScreen(rootNav)
                 1 -> TabTwoScreen()
-                2 -> ContactScreen() // New Screen
+                2 -> ContactScreen()
+                3 -> ModalScreen( // Render Settings here
+                    navController = rootNav,
+                    isDarkTheme = darkTheme,
+                    onToggleTheme = onToggleTheme
+                )
             }
         }
     }

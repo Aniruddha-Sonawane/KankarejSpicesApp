@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.kankarej.kankarejspices.navigation.RootNav
@@ -23,9 +22,9 @@ class MainActivity : ComponentActivity() {
         // ---- Synchronous theme load (NO flicker) ----
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        // If key does not exist yet → follow system theme (first install)
-        val systemDark = isSystemInDarkThemeCompat()
-        val initialDarkTheme = prefs.getBoolean(KEY_DARK_THEME, systemDark)
+        // CHANGE: Force "false" (Light Mode) as default if key doesn't exist
+        // We ignore isSystemInDarkThemeCompat() for the initial default.
+        val initialDarkTheme = prefs.getBoolean(KEY_DARK_THEME, false)
 
         setContent {
 
@@ -37,6 +36,7 @@ class MainActivity : ComponentActivity() {
                 AppSystemBars()
 
                 RootNav(
+                    darkTheme = darkTheme,
                     onToggleTheme = {
                         val newValue = !darkTheme
                         darkTheme = newValue
@@ -51,10 +51,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * We cannot call isSystemInDarkTheme() outside Compose,
-     * so this helper mirrors it using system configuration.
-     */
     private fun isSystemInDarkThemeCompat(): Boolean {
         val uiMode = resources.configuration.uiMode
         val nightMask = uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK

@@ -7,13 +7,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items // <--- ADDED THIS IMPORT
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -98,7 +97,6 @@ fun TabOneScreen(rootNav: NavController) {
             TopAppBar(
                 modifier = Modifier.shadow(4.dp),
                 title = {
-                    // --- CHANGED: Added Row to hold Logo + Masale Text ---
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(id = R.drawable.app_header_logo),
@@ -114,9 +112,9 @@ fun TabOneScreen(rootNav: NavController) {
                         Text(
                             text = "Masale",
                             fontFamily = FontFamily.Cursive,
-                            fontWeight = FontWeight.Thin, // Very thin font weight
+                            fontWeight = FontWeight.Thin, 
                             fontSize = 32.sp,
-                            color = KankarejGreen // Same Green Colour
+                            color = KankarejGreen 
                         )
                     }
                 },
@@ -124,12 +122,9 @@ fun TabOneScreen(rootNav: NavController) {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
                         Icon(Icons.Default.Search, "Search", tint = KankarejGreen)
                     }
-                    IconButton(onClick = { rootNav.navigate(Routes.MODAL) }) {
-                        Icon(Icons.Default.Info, "Info", tint = KankarejGreen)
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -137,12 +132,12 @@ fun TabOneScreen(rootNav: NavController) {
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            // Gradient Body (Light Green -> White)
+            // Gradient Body
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         LightGreenBg,
-                        Color.White
+                        MaterialTheme.colorScheme.background
                     )
                 )
             )
@@ -174,10 +169,9 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    // 3. Featured Products Title with Thin Black Line
+                    // 3. Featured Products Title
                     item(span = { GridItemSpan(2) }) {
                         Column {
-                            // --- THIN BLACK LINE ---
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -269,14 +263,12 @@ fun FullWidthBannerPager(products: List<Product>) {
 @Composable
 fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
     Column {
-        // --- THIN BLACK LINE ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(0.5.dp)
                 .background(Color.Black)
         )
-        // REDUCED PADDING
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
@@ -284,6 +276,9 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = KankarejGreen),
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
         )
+        
+        // This is the LazyRow that was failing.
+        // It requires 'import androidx.compose.foundation.lazy.items' to work with List<Category>
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -307,13 +302,12 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
                     Text(
                         text = category.name,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Black,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Medium
                     )
                 }
             }
         }
-        // REDUCED PADDING
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -321,7 +315,7 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
 @Composable
 fun ProductGridItem(product: Product, onClick: () -> Unit) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp),
         modifier = Modifier
             .padding(8.dp)
@@ -357,7 +351,7 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = product.category,
