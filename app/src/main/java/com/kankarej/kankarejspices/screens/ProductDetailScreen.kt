@@ -24,7 +24,7 @@ import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
-import com.kankarej.kankarejspices.util.getOptimizedUrl // <--- IMPORT THIS
+import com.kankarej.kankarejspices.util.getOptimizedUrl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,25 +40,26 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
         topBar = {
             TopAppBar(
                 modifier = Modifier.shadow(4.dp),
-                title = { Text(product?.name ?: "Loading...", color = Color.Black) },
+                title = { Text(product?.name ?: "Loading...", color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.Black)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
         bottomBar = {
             if (product != null) {
-                Surface(modifier = Modifier.shadow(8.dp), color = Color.White) {
+                Surface(modifier = Modifier.shadow(8.dp), color = MaterialTheme.colorScheme.surface) {
                     Button(
                         onClick = { /* TODO: Add to cart */ },
                         colors = ButtonDefaults.buttonColors(containerColor = KankarejGreen),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .height(50.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Add to Cart", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -72,40 +73,40 @@ fun ProductDetailScreen(navController: NavController, productName: String) {
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (product != null) {
-                // REAL CONTENT
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(getOptimizedUrl(product!!.imageUrl, width = 800)) // <--- OPTIMIZED URL (High Quality)
+                        .data(getOptimizedUrl(product!!.imageUrl, width = 800))
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().height(300.dp),
-                    loading = {
-                        Box(Modifier.fillMaxSize().shimmerEffect())
-                    },
-                    error = {
-                        Box(Modifier.fillMaxSize().background(Color.LightGray))
-                    }
+                    loading = { Box(Modifier.fillMaxSize().shimmerEffect()) },
+                    error = { Box(Modifier.fillMaxSize().background(Color.LightGray)) }
                 )
 
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(product!!.category, color = KankarejGreen, fontWeight = FontWeight.Bold)
-                    Text(product!!.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = product!!.name, 
+                        fontSize = 24.sp, 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(Modifier.height(8.dp))
                     Text("₹${product!!.price}", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = KankarejGreen)
                     Spacer(Modifier.height(16.dp))
-                    Text("Description", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Description", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         "This is a premium quality ${product!!.name} sourced directly from the best farms.",
-                        color = Color.DarkGray, lineHeight = 22.sp
+                        color = if(MaterialTheme.colorScheme.background == Color.White) Color.DarkGray else Color.LightGray, 
+                        lineHeight = 22.sp
                     )
                 }
             } else {
-                // SKELETON CONTENT
                 Box(Modifier.fillMaxWidth().height(300.dp).shimmerEffect())
                 Column(modifier = Modifier.padding(16.dp)) {
                     Box(Modifier.width(100.dp).height(20.dp).shimmerEffect())

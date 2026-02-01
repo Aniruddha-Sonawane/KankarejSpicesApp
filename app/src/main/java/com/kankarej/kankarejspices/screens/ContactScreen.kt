@@ -40,7 +40,8 @@ fun ContactScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9F9F9))
+            // CHANGE: Dynamic background color
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -50,12 +51,10 @@ fun ContactScreen() {
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(Color.White) // Keep logo bg white to ensure visibility
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Assuming you have a logo drawable, otherwise using an icon
-            // Use your actual logo resource here: R.drawable.splash_logo
             Image(
                 painter = painterResource(R.drawable.splash_logo), 
                 contentDescription = "Logo",
@@ -83,7 +82,8 @@ fun ContactScreen() {
 
         // --- 2. LEGAL & LICENSE INFO ---
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            // CHANGE: Dynamic card container color
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(2.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -93,7 +93,10 @@ fun ContactScreen() {
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = KankarejGreen
                 )
-                Divider(Modifier.padding(vertical = 8.dp), color = Color(0xFFEEEEEE))
+                Divider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = if (MaterialTheme.colorScheme.background == Color.White) Color(0xFFEEEEEE) else Color.DarkGray
+                )
                 
                 InfoRow(Icons.Default.Business, "GSTIN", "24ABCDE1234F1Z5")
                 Spacer(Modifier.height(12.dp))
@@ -109,7 +112,8 @@ fun ContactScreen() {
         Text(
             text = "Key Contacts",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = Color.Black,
+            // CHANGE: Dynamic text color
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
         )
 
@@ -128,7 +132,13 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Column {
             Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = Color.Black, fontWeight = FontWeight.Medium)
+            // CHANGE: Dynamic value text color
+            Text(
+                text = value, 
+                style = MaterialTheme.typography.bodyMedium, 
+                color = MaterialTheme.colorScheme.onSurface, 
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -137,7 +147,8 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
 fun ContactPersonCard(name: String, role: String, phone: String) {
     val context = LocalContext.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        // CHANGE: Dynamic card container color
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(1.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -166,7 +177,13 @@ fun ContactPersonCard(name: String, role: String, phone: String) {
             Spacer(Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                // CHANGE: Dynamic name text color
+                Text(
+                    text = name, 
+                    fontWeight = FontWeight.Bold, 
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(text = role, fontSize = 12.sp, color = Color.Gray)
             }
             

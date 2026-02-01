@@ -33,10 +33,10 @@ fun ModalScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },
-                // CHANGE: Navigation Icon (Back Button) REMOVED
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -49,98 +49,50 @@ fun ModalScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // --- SECTION 1: APPEARANCE ---
             SettingsSectionTitle("Appearance")
-            
             SettingsCard {
-                // Dark Mode Toggle
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.DarkMode,
-                        contentDescription = null,
-                        tint = KankarejGreen,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Icon(Icons.Default.DarkMode, null, tint = KankarejGreen, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Dark Mode",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = if (isDarkTheme) "On" else "Off",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
+                        Text("Dark Mode", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Text(if (isDarkTheme) "On" else "Off", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                     Switch(
                         checked = isDarkTheme,
                         onCheckedChange = { onToggleTheme() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = KankarejGreen
-                        )
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = KankarejGreen)
                     )
                 }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- SECTION 2: GENERAL ---
             SettingsSectionTitle("General")
-            
             SettingsCard {
-                SettingsItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notifications",
-                    subtitle = "Manage app notifications",
-                    onClick = { /* TODO */ }
-                )
+                SettingsItem(Icons.Default.Notifications, "Notifications", "Manage app notifications") {}
                 HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-                SettingsItem(
-                    icon = Icons.Default.Language,
-                    title = "Language",
-                    subtitle = "English (Default)",
-                    onClick = { /* TODO */ }
-                )
+                SettingsItem(Icons.Default.Language, "Language", "English (Default)") {}
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- SECTION 3: ABOUT ---
             SettingsSectionTitle("About")
-            
             SettingsCard {
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "Version",
-                    subtitle = "1.0.0 (Build 101)",
-                    showArrow = false,
-                    onClick = {}
-                )
+                SettingsItem(Icons.Default.Info, "Version", "1.0.0 (Build 101)", showArrow = false) {}
             }
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Footer
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "©2026 Kankarej Spices Developed & Managed By Aniruddha Sonawane",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
-                )
+                Text("Made with ❤️ for Kankarej Spices", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
         }
     }
 }
-
-// --- HELPER COMPONENTS ---
 
 @Composable
 fun SettingsSectionTitle(title: String) {
@@ -174,41 +126,17 @@ fun SettingsItem(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.Gray,
-            modifier = Modifier.size(24.dp)
-        )
+        Icon(icon, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
         if (showArrow) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = null,
-                tint = Color.LightGray,
-                modifier = Modifier.size(16.dp)
-            )
+            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null, tint = Color.LightGray, modifier = Modifier.size(16.dp))
         }
     }
 }

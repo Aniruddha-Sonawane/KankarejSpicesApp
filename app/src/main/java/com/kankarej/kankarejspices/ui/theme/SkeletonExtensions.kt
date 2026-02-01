@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -33,15 +35,31 @@ fun Modifier.shimmerEffect(): Modifier = composed {
         label = "ShimmerOffset"
     )
 
+    // Check if we are in dark mode based on the current theme's background luminance
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    // Define colors based on theme
+    val shimmerColors = if (isDark) {
+        listOf(
+            Color(0xFF2B2B2B), // Dark Gray Base
+            Color(0xFF3D3D3D), // Slightly lighter Highlight
+            Color(0xFF2B2B2B)
+        )
+    } else {
+        listOf(
+            Color(0xFFE0E0E0), // Light Gray Base
+            Color(0xFFF0F0F0), // Lighter Highlight
+            Color(0xFFE0E0E0)
+        )
+    }
+
     background(
         brush = Brush.linearGradient(
-            colors = listOf(
-                Color(0xFFE0E0E0),
-                Color(0xFFF0F0F0),
-                Color(0xFFE0E0E0),
-            ),
+            colors = shimmerColors,
             start = Offset(startOffsetX, 0f),
-            end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat())
+            // CHANGE: Y coordinate set to 0f instead of size.height.toFloat()
+            // This forces the gradient to be purely horizontal (Left -> Right)
+            end = Offset(startOffsetX + size.width.toFloat(), 0f) 
         )
     ).onGloballyPositioned {
         size = it.size
@@ -56,7 +74,7 @@ fun SkeletonBanner() {
         modifier = Modifier
             .fillMaxWidth()
             .height(220.dp)
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface) // Dynamic background
             .shimmerEffect()
     )
 }
@@ -88,7 +106,7 @@ fun SkeletonProductItem() {
             .padding(8.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface) // Dynamic background
     ) {
         Box(
             modifier = Modifier
@@ -109,7 +127,8 @@ fun SkeletonProductItem() {
 // --- FULL SCREEN SKELETON ---
 @Composable
 fun SkeletonHomeScreen() {
-    Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
+    // Dynamic container background
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // 1. Banner Skeleton
         SkeletonBanner()
         

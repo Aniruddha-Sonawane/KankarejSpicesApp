@@ -7,7 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items // <--- ADDED THIS IMPORT
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -46,7 +47,6 @@ import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
 
-// This color is used for the body gradient start
 val LightGreenBg = Color(0xFFB9E4C9)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -55,18 +55,15 @@ fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
     val context = LocalContext.current
     
-    // REALTIME FLOWS
     val categories by repo.getCategoriesFlow().collectAsState(initial = emptyList())
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     
-    // Pagination
     var displayedCount by remember { mutableIntStateOf(20) }
     
     val displayedProducts by remember(allProducts, displayedCount) {
         derivedStateOf { allProducts.take(displayedCount) }
     }
 
-    // Preloading
     LaunchedEffect(allProducts) {
         if (allProducts.isNotEmpty()) {
             allProducts.take(20).forEach { product ->
@@ -92,6 +89,8 @@ fun TabOneScreen(rootNav: NavController) {
         }
     }
 
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -114,40 +113,46 @@ fun TabOneScreen(rootNav: NavController) {
                             fontFamily = FontFamily.Cursive,
                             fontWeight = FontWeight.Thin, 
                             fontSize = 32.sp,
-                            color = KankarejGreen 
+                            color = if (isDarkTheme) Color.White else KankarejGreen 
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
-                        Icon(Icons.Default.Search, "Search", tint = KankarejGreen)
+                        Icon(
+                            Icons.Default.Search, 
+                            "Search", 
+                            tint = if (isDarkTheme) Color.White else KankarejGreen
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
     ) { paddingValues ->
+        
+        val backgroundModifier = if (isDarkTheme) {
+            Modifier.background(MaterialTheme.colorScheme.surface)
+        } else {
+            Modifier.background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(LightGreenBg, MaterialTheme.colorScheme.background)
+                )
+            )
+        }
+
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            // Gradient Body
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        LightGreenBg,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
+            .then(backgroundModifier)
         ) {
             
-            // --- SKELETON STATE ---
             if (allProducts.isEmpty() && categories.isEmpty()) {
                 SkeletonHomeScreen()
             } else {
-                // --- REAL CONTENT ---
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     state = gridState,
@@ -155,12 +160,10 @@ fun TabOneScreen(rootNav: NavController) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     
-                    // 1. Banner
                     item(span = { GridItemSpan(2) }) {
                         FullWidthBannerPager(allProducts.take(5))
                     }
 
-                    // 2. Categories
                     if (categories.isNotEmpty()) {
                         item(span = { GridItemSpan(2) }) {
                             CategorySection(categories) { catName ->
@@ -169,14 +172,14 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    // 3. Featured Products Title
                     item(span = { GridItemSpan(2) }) {
                         Column {
+                            // CHANGE: Line color logic
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(0.5.dp)
-                                    .background(Color.Black)
+                                    .background(if (isDarkTheme) Color.Gray else Color.Black)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             
@@ -184,21 +187,19 @@ fun TabOneScreen(rootNav: NavController) {
                                 text = "Featured Products",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = KankarejGreen
+                                    color = if (isDarkTheme) Color.White else KankarejGreen
                                 ),
                                 modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
                             )
                         }
                     }
 
-                    // 4. Products Grid
                     items(displayedProducts) { product ->
                         ProductGridItem(product) {
                             rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                         }
                     }
                     
-                    // 5. Loader
                     if (displayedCount < allProducts.size) {
                          item(span = { GridItemSpan(2) }) {
                             Box(
@@ -215,20 +216,14 @@ fun TabOneScreen(rootNav: NavController) {
     }
 }
 
-// --- COMPONENTS ---
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullWidthBannerPager(products: List<Product>) {
     if (products.isEmpty()) return
 
     val startIndex = Int.MAX_VALUE / 2
-    val pagerState = rememberPagerState(
-        initialPage = startIndex,
-        pageCount = { Int.MAX_VALUE }
-    )
+    val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { Int.MAX_VALUE })
     
-    // Auto Scroll Timer
     LaunchedEffect(Unit) {
         while (true) {
             delay(10_000)
@@ -236,15 +231,8 @@ fun FullWidthBannerPager(products: List<Product>) {
         }
     }
 
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .height(220.dp)
-        .background(Color(0xFFEEEEEE))
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
+    Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFEEEEEE))) {
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val product = products[page % products.size]
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -262,23 +250,27 @@ fun FullWidthBannerPager(products: List<Product>) {
 
 @Composable
 fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Unit) {
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
     Column {
+        // CHANGE: Line color logic
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(0.5.dp)
-                .background(Color.Black)
+                .background(if (isDarkTheme) Color.Gray else Color.Black)
         )
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "Categories",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = KankarejGreen),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold, 
+                color = if (isDarkTheme) Color.White else KankarejGreen
+            ),
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
         )
         
-        // This is the LazyRow that was failing.
-        // It requires 'import androidx.compose.foundation.lazy.items' to work with List<Category>
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -302,7 +294,7 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
                     Text(
                         text = category.name,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = if (isDarkTheme) Color.White else Color.Black,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -317,10 +309,7 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp),
-        modifier = Modifier
-            .padding(8.dp)
-            .fillMaxWidth()
-            .clickable { onClick() }
+        modifier = Modifier.padding(8.dp).fillMaxWidth().clickable { onClick() }
     ) {
         Column {
             Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
@@ -332,17 +321,8 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
-                    loading = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFFF0F0F0))
-                                .shimmerEffect() 
-                        )
-                    },
-                    error = {
-                        Box(Modifier.fillMaxSize().background(Color.LightGray))
-                    }
+                    loading = { Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF0F0F0)).shimmerEffect()) },
+                    error = { Box(Modifier.fillMaxSize().background(Color.LightGray)) }
                 )
             }
             Column(modifier = Modifier.padding(12.dp)) {

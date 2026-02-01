@@ -31,13 +31,17 @@ fun CategoryProductScreen(navController: NavController, categoryName: String) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(categoryName, color = Color.Black) },
+                title = { Text(categoryName, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.Black)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     ) { padding ->
@@ -47,17 +51,12 @@ fun CategoryProductScreen(navController: NavController, categoryName: String) {
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (allProducts.isEmpty()) {
                 items(6) { SkeletonProductItem() }
             } else {
                 items(categoryProducts) { product ->
-                    // ProductGridItem ALREADY uses getOptimizedUrl inside TabOneScreen.kt?
-                    // NOTE: If ProductGridItem is shared, we must ensure it uses the util function.
-                    // Assuming ProductGridItem is imported from TabOneScreen or shared.
-                    // If you haven't moved ProductGridItem to a shared file, it's safer to use the one in TabOneScreen 
-                    // and Update TabOneScreen to use the new Utils file.
                     ProductGridItem(product) {
                         navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                     }
