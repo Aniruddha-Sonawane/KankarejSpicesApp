@@ -1,5 +1,9 @@
 package com.kankarej.kankarejspices.screens
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,19 +11,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.imageLoader
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,14 +33,16 @@ fun ModalScreen(
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit
 ) {
+    val context = LocalContext.current
+    var notificationsEnabled by remember { mutableStateOf(true) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -49,16 +55,21 @@ fun ModalScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // --- SECTION 1: APPEARANCE ---
             SettingsSectionTitle("Appearance")
             SettingsCard {
+                // Dark Mode Toggle
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleTheme() }
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Default.DarkMode, null, tint = KankarejGreen, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Dark Mode", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Text("Dark Mode", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Text(if (isDarkTheme) "On" else "Off", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                     Switch(
@@ -71,25 +82,90 @@ fun ModalScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
 
+            // --- SECTION 2: GENERAL ---
             SettingsSectionTitle("General")
             SettingsCard {
-                SettingsItem(Icons.Default.Notifications, "Notifications", "Manage app notifications") {}
+                // Notifications
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { notificationsEnabled = !notificationsEnabled }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Notifications, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Notifications", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Order updates & offers", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = notificationsEnabled,
+                        onCheckedChange = { notificationsEnabled = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = KankarejGreen)
+                    )
+                }
+                
                 HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-                SettingsItem(Icons.Default.Language, "Language", "English (Default)") {}
+                
+                // Language
+                SettingsItem(Icons.Default.Language, "Language", "English (Default)") {
+                    Toast.makeText(context, "More languages coming soon!", Toast.LENGTH_SHORT).show()
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            SettingsSectionTitle("About")
+            // --- SECTION 3: SUPPORT & SHARE ---
+            SettingsSectionTitle("Support")
             SettingsCard {
-                SettingsItem(Icons.Default.Info, "Version", "1.0.0 (Build 101)", showArrow = false) {}
+                // Share App
+                SettingsItem(Icons.Default.Share, "Share App", "Tell your friends about us") {
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "Kankarej Spices")
+                        putExtra(Intent.EXTRA_TEXT, "Check out Kankarej Spices for authentic Indian masalas! Download now.")
+                    }
+                    context.startActivity(Intent.createChooser(sendIntent, "Share via"))
+                }
+                
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                
+                // Rate Us
+                SettingsItem(Icons.Default.Star, "Rate Us", "Rate us on Play Store") {
+                    Toast.makeText(context, "Play Store listing not live yet.", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- SECTION 4: DATA & PRIVACY ---
+            SettingsSectionTitle("Data")
+            SettingsCard {
+                // Clear Cache
+                SettingsItem(Icons.Default.CleaningServices, "Clear Image Cache", "Free up space") {
+                    context.imageLoader.memoryCache?.clear()
+                    context.imageLoader.diskCache?.clear()
+                    Toast.makeText(context, "Cache Cleared!", Toast.LENGTH_SHORT).show()
+                }
+                
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                
+                SettingsItem(Icons.Default.PrivacyTip, "Privacy Policy") {
+                    // TODO: Open Web Link
+                }
             }
             
             Spacer(modifier = Modifier.height(32.dp))
             
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Made with ❤️ for Kankarej Spices", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Version 1.0.0", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                    Text("Made with ❤️ for Kankarej Spices", style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+                }
             }
+            
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -126,14 +202,19 @@ fun SettingsItem(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
         }
         if (showArrow) {
             Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null, tint = Color.LightGray, modifier = Modifier.size(16.dp))
