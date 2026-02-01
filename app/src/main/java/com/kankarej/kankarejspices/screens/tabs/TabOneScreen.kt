@@ -63,14 +63,16 @@ fun TabOneScreen(rootNav: NavController) {
     
     var displayedCount by remember { mutableIntStateOf(20) }
     
-    val displayedProducts by remember(allProducts, displayedCount) {
-        derivedStateOf { allProducts.take(displayedCount) }
+    // CHANGE: Randomize products once when data is loaded
+    val randomProducts = remember(allProducts) { allProducts.shuffled() }
+    
+    val displayedProducts by remember(randomProducts, displayedCount) {
+        derivedStateOf { randomProducts.take(displayedCount) }
     }
 
-    // Preload Products (Optional: could add Banner preloading here too)
-    LaunchedEffect(allProducts) {
-        if (allProducts.isNotEmpty()) {
-            allProducts.take(20).forEach { product ->
+    LaunchedEffect(randomProducts) {
+        if (randomProducts.isNotEmpty()) {
+            randomProducts.take(20).forEach { product ->
                 val request = ImageRequest.Builder(context)
                     .data(getOptimizedUrl(product.imageUrl))
                     .build()
@@ -88,7 +90,7 @@ fun TabOneScreen(rootNav: NavController) {
     }
 
     LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && displayedCount < allProducts.size) {
+        if (shouldLoadMore && displayedCount < randomProducts.size) {
             displayedCount += 20
         }
     }
@@ -132,10 +134,12 @@ fun TabOneScreen(rootNav: NavController) {
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
+                        // CHANGE: Increased search icon size to 32.dp
                         Icon(
                             Icons.Default.Search, 
                             "Search", 
-                            tint = if (isDarkTheme) Color.White else KankarejGreen
+                            tint = if (isDarkTheme) Color.White else KankarejGreen,
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 },
@@ -162,7 +166,6 @@ fun TabOneScreen(rootNav: NavController) {
             .padding(paddingValues)
             .then(backgroundModifier)
         ) {
-            // CHANGE: Check for banners loading as well before showing skeleton
             if (allProducts.isEmpty() && categories.isEmpty() && banners.isEmpty()) {
                 SkeletonHomeScreen()
             } else {
@@ -173,7 +176,6 @@ fun TabOneScreen(rootNav: NavController) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     
-                    // CHANGE: Pass real banners to the pager
                     item(span = { GridItemSpan(2) }) {
                         FullWidthBannerPager(banners)
                     }
@@ -213,7 +215,7 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
                     
-                    if (displayedCount < allProducts.size) {
+                    if (displayedCount < randomProducts.size) {
                          item(span = { GridItemSpan(2) }) {
                             Box(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -229,7 +231,6 @@ fun TabOneScreen(rootNav: NavController) {
     }
 }
 
-// CHANGE: Updated to accept List<Banner> instead of List<Product>
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FullWidthBannerPager(banners: List<Banner>) {
@@ -240,7 +241,7 @@ fun FullWidthBannerPager(banners: List<Banner>) {
     
     LaunchedEffect(Unit) {
         while (true) {
-            delay(5000) // 5 seconds per slide
+            delay(5000)
             try { pagerState.animateScrollToPage(pagerState.currentPage + 1) } catch (_: Exception) { }
         }
     }
