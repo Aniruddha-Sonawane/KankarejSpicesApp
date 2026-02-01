@@ -44,8 +44,6 @@ fun ContactScreen() {
     // Fetch data from Repo
     val contactInfo by repo.getContactInfoFlow().collectAsState(initial = null)
 
-    // REMOVED: Animation state logic (infiniteTransition)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,9 +65,7 @@ fun ContactScreen() {
                 painter = painterResource(R.drawable.splash_logo), 
                 contentDescription = "Logo",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    // REMOVED: .scale(scale) modifier
+                modifier = Modifier.fillMaxSize()
             )
         }
         
@@ -109,7 +105,6 @@ fun ContactScreen() {
                 
                 if (contactInfo == null) {
                     // Loading State (Skeleton)
-                    // CHANGE: Added Icon placeholder circles before text strips
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(20.dp).clip(CircleShape).shimmerEffect())
                         Spacer(Modifier.width(12.dp))
@@ -161,7 +156,7 @@ fun ContactScreen() {
             }
         }
         
-        Spacer(Modifier.height(80.dp)) // Bottom spacing
+        // CHANGE: Removed the Spacer(Modifier.height(80.dp)) that was here
     }
 }
 
