@@ -76,6 +76,7 @@ Style rules for the assistant:
 - If you recommend installing a dependency, give the exact Maven coordinate and the single `implementation("...")` line (or the `compile` variant for non-KTS projects).
 - When suggesting file creation, provide both the exact `mkdir`/`ni`/`touch` command and the file contents.
 
+Now I'll Paste Full Project File Codes...
 _______________________________________________________________________
 
 Optional flags I may include:

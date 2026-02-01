@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.kankarej.kankarejspices.data.PresenceManager
 import com.kankarej.kankarejspices.navigation.RootNav
 import com.kankarej.kankarejspices.ui.AppSystemBars
 import com.kankarej.kankarejspices.ui.theme.KankarejSpicesTheme
@@ -18,6 +19,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // ---- Initialize Presence System (Live User Count) ----
+        // This will automatically track when user opens/closes app
+        val presenceManager = PresenceManager()
+        presenceManager.startTracking()
 
         // ---- Synchronous theme load (NO flicker) ----
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
