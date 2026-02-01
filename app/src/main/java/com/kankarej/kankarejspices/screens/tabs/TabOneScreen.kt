@@ -38,6 +38,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.kankarej.kankarejspices.R
 import com.kankarej.kankarejspices.data.ProductRepository
+import com.kankarej.kankarejspices.model.Banner
 import com.kankarej.kankarejspices.model.Category
 import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.navigation.Routes
@@ -55,8 +56,10 @@ fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
     val context = LocalContext.current
     
+    // FETCH DATA
     val categories by repo.getCategoriesFlow().collectAsState(initial = emptyList())
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
+    val banners by repo.getBannersFlow().collectAsState(initial = emptyList())
     
     var displayedCount by remember { mutableIntStateOf(20) }
     
@@ -64,6 +67,7 @@ fun TabOneScreen(rootNav: NavController) {
         derivedStateOf { allProducts.take(displayedCount) }
     }
 
+    // Preload Products (Optional: could add Banner preloading here too)
     LaunchedEffect(allProducts) {
         if (allProducts.isNotEmpty()) {
             allProducts.take(20).forEach { product ->
@@ -97,6 +101,23 @@ fun TabOneScreen(rootNav: NavController) {
                 modifier = Modifier.shadow(4.dp),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(KankarejGreen),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.app_header_logo2),
+                                contentDescription = "Icon",
+                                modifier = Modifier.size(32.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         Image(
                             painter = painterResource(id = R.drawable.app_header_logo),
                             contentDescription = "Kankarej Logo",
@@ -107,14 +128,6 @@ fun TabOneScreen(rootNav: NavController) {
                         )
                         
                         Spacer(modifier = Modifier.width(8.dp))
-                        
-                        Text(
-                            text = "Masale",
-                            fontFamily = FontFamily.Cursive,
-                            fontWeight = FontWeight.Thin, 
-                            fontSize = 32.sp,
-                            color = if (isDarkTheme) Color.White else KankarejGreen 
-                        )
                     }
                 },
                 actions = {
@@ -149,8 +162,8 @@ fun TabOneScreen(rootNav: NavController) {
             .padding(paddingValues)
             .then(backgroundModifier)
         ) {
-            
-            if (allProducts.isEmpty() && categories.isEmpty()) {
+            // CHANGE: Check for banners loading as well before showing skeleton
+            if (allProducts.isEmpty() && categories.isEmpty() && banners.isEmpty()) {
                 SkeletonHomeScreen()
             } else {
                 LazyVerticalGrid(
@@ -160,8 +173,9 @@ fun TabOneScreen(rootNav: NavController) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     
+                    // CHANGE: Pass real banners to the pager
                     item(span = { GridItemSpan(2) }) {
-                        FullWidthBannerPager(allProducts.take(5))
+                        FullWidthBannerPager(banners)
                     }
 
                     if (categories.isNotEmpty()) {
@@ -174,7 +188,6 @@ fun TabOneScreen(rootNav: NavController) {
                     
                     item(span = { GridItemSpan(2) }) {
                         Column {
-                            // CHANGE: Line color logic
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -216,30 +229,31 @@ fun TabOneScreen(rootNav: NavController) {
     }
 }
 
+// CHANGE: Updated to accept List<Banner> instead of List<Product>
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FullWidthBannerPager(products: List<Product>) {
-    if (products.isEmpty()) return
+fun FullWidthBannerPager(banners: List<Banner>) {
+    if (banners.isEmpty()) return
 
     val startIndex = Int.MAX_VALUE / 2
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { Int.MAX_VALUE })
     
     LaunchedEffect(Unit) {
         while (true) {
-            delay(10_000)
+            delay(5000) // 5 seconds per slide
             try { pagerState.animateScrollToPage(pagerState.currentPage + 1) } catch (_: Exception) { }
         }
     }
 
     Box(modifier = Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFEEEEEE))) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            val product = products[page % products.size]
+            val banner = banners[page % banners.size]
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(getOptimizedUrl(product.imageUrl))
+                    .data(getOptimizedUrl(banner.imageUrl))
                     .crossfade(true)
                     .build(),
-                contentDescription = null,
+                contentDescription = banner.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
                 loading = { Box(Modifier.fillMaxSize().shimmerEffect()) }
@@ -253,7 +267,6 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Column {
-        // CHANGE: Line color logic
         Box(
             modifier = Modifier
                 .fillMaxWidth()

@@ -1,4 +1,14 @@
 {
+  "slidingbanner": {
+    "banner1": {
+      "imageUrl": "https://example.com/banner1.jpg",
+      "name": "Summer Sale"
+    },
+    "banner2": {
+      "imageUrl": "https://example.com/banner2.jpg",
+      "name": "New Arrivals"
+    }
+  },
   "products": {
     "LKG": {
       "lkg_chilli": {
