@@ -1,4 +1,21 @@
 {
+  "contact_info": {
+    "gstin": "24ABCDE1234F1Z5",
+    "fssai": "12345678901234",
+    "address": "123, Spice Market, Kankarej Road, Gujarat - 385555",
+    "team": {
+      "person1": {
+        "name": "Aniruddha Sonawane",
+        "role": "Owner / Founder",
+        "phone": "+91 98765 43210"
+      },
+      "person2": {
+        "name": "Sales Department",
+        "role": "Wholesale Inquiries",
+        "phone": "+91 91234 56789"
+      }
+    }
+  },
   "slidingbanner": {
     "banner1": {
       "imageUrl": "https://example.com/banner1.jpg",

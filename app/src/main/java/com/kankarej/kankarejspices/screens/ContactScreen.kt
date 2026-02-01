@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,17 +30,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kankarej.kankarejspices.R
+import com.kankarej.kankarejspices.data.ProductRepository
+import com.kankarej.kankarejspices.model.ContactInfo
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
+import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 
 @Composable
 fun ContactScreen() {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val repo = remember { ProductRepository() }
+    
+    // Fetch data from Repo
+    val contactInfo by repo.getContactInfoFlow().collectAsState(initial = null)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            // CHANGE: Dynamic background color
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(scrollState)
             .padding(16.dp),
@@ -51,7 +57,7 @@ fun ContactScreen() {
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .background(Color.White) // Keep logo bg white to ensure visibility
+                .background(Color.White)
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -82,7 +88,6 @@ fun ContactScreen() {
 
         // --- 2. LEGAL & LICENSE INFO ---
         Card(
-            // CHANGE: Dynamic card container color
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(2.dp),
             modifier = Modifier.fillMaxWidth()
@@ -98,11 +103,21 @@ fun ContactScreen() {
                     color = if (MaterialTheme.colorScheme.background == Color.White) Color(0xFFEEEEEE) else Color.DarkGray
                 )
                 
-                InfoRow(Icons.Default.Business, "GSTIN", "24ABCDE1234F1Z5")
-                Spacer(Modifier.height(12.dp))
-                InfoRow(Icons.Default.VerifiedUser, "FSSAI License", "12345678901234")
-                Spacer(Modifier.height(12.dp))
-                InfoRow(Icons.Default.LocationOn, "Address", "123, Spice Market, Kankarej Road, Gujarat - 385555")
+                if (contactInfo == null) {
+                    // Loading State
+                    Box(Modifier.fillMaxWidth().height(20.dp).shimmerEffect())
+                    Spacer(Modifier.height(12.dp))
+                    Box(Modifier.fillMaxWidth().height(20.dp).shimmerEffect())
+                    Spacer(Modifier.height(12.dp))
+                    Box(Modifier.fillMaxWidth().height(40.dp).shimmerEffect())
+                } else {
+                    // Data Loaded
+                    InfoRow(Icons.Default.Business, "GSTIN", contactInfo!!.gstin)
+                    Spacer(Modifier.height(12.dp))
+                    InfoRow(Icons.Default.VerifiedUser, "FSSAI License", contactInfo!!.fssai)
+                    Spacer(Modifier.height(12.dp))
+                    InfoRow(Icons.Default.LocationOn, "Address", contactInfo!!.address)
+                }
             }
         }
 
@@ -112,14 +127,20 @@ fun ContactScreen() {
         Text(
             text = "Key Contacts",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            // CHANGE: Dynamic text color
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.align(Alignment.Start).padding(bottom = 8.dp)
         )
 
-        ContactPersonCard("Aniruddha Sonawane", "Owner / Founder", "+91 98765 43210")
-        ContactPersonCard("Sales Department", "Wholesale Inquiries", "+91 91234 56789")
-        ContactPersonCard("Customer Support", "Help & Queries", "+91 99887 76655")
+        if (contactInfo == null) {
+            // Skeleton for Contacts
+            repeat(3) {
+                ContactPersonSkeleton()
+            }
+        } else {
+            contactInfo!!.teamList.forEach { person ->
+                ContactPersonCard(person.name, person.role, person.phone)
+            }
+        }
         
         Spacer(Modifier.height(80.dp)) // Bottom spacing
     }
@@ -132,7 +153,6 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
         Spacer(Modifier.width(12.dp))
         Column {
             Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-            // CHANGE: Dynamic value text color
             Text(
                 text = value, 
                 style = MaterialTheme.typography.bodyMedium, 
@@ -147,7 +167,6 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
 fun ContactPersonCard(name: String, role: String, phone: String) {
     val context = LocalContext.current
     Card(
-        // CHANGE: Dynamic card container color
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(1.dp),
         modifier = Modifier
@@ -177,7 +196,6 @@ fun ContactPersonCard(name: String, role: String, phone: String) {
             Spacer(Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                // CHANGE: Dynamic name text color
                 Text(
                     text = name, 
                     fontWeight = FontWeight.Bold, 
@@ -196,6 +214,24 @@ fun ContactPersonCard(name: String, role: String, phone: String) {
                 }
             ) {
                 Icon(Icons.Default.Call, "Call", tint = KankarejGreen)
+            }
+        }
+    }
+}
+
+@Composable
+fun ContactPersonSkeleton() {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(CircleShape).shimmerEffect())
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(Modifier.width(150.dp).height(16.dp).shimmerEffect())
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.width(100.dp).height(12.dp).shimmerEffect())
             }
         }
     }
