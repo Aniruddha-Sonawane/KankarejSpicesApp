@@ -44,6 +44,8 @@ fun ContactScreen() {
     // Fetch data from Repo
     val contactInfo by repo.getContactInfoFlow().collectAsState(initial = null)
 
+    // REMOVED: Animation state logic (infiniteTransition)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -57,15 +59,17 @@ fun ContactScreen() {
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .background(Color.White)
-                .padding(16.dp),
+                .background(KankarejGreen)
+                .padding(4.dp), 
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(R.drawable.splash_logo), 
                 contentDescription = "Logo",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    // REMOVED: .scale(scale) modifier
             )
         }
         
@@ -104,12 +108,27 @@ fun ContactScreen() {
                 )
                 
                 if (contactInfo == null) {
-                    // Loading State
-                    Box(Modifier.fillMaxWidth().height(20.dp).shimmerEffect())
+                    // Loading State (Skeleton)
+                    // CHANGE: Added Icon placeholder circles before text strips
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).shimmerEffect())
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.fillMaxWidth().height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Box(Modifier.fillMaxWidth().height(20.dp).shimmerEffect())
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).shimmerEffect())
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.fillMaxWidth().height(20.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Box(Modifier.fillMaxWidth().height(40.dp).shimmerEffect())
+                    
+                    Row(verticalAlignment = Alignment.Top) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).shimmerEffect())
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                    }
                 } else {
                     // Data Loaded
                     InfoRow(Icons.Default.Business, "GSTIN", contactInfo!!.gstin)
@@ -229,9 +248,9 @@ fun ContactPersonSkeleton() {
             Box(Modifier.size(40.dp).clip(CircleShape).shimmerEffect())
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Box(Modifier.width(150.dp).height(16.dp).shimmerEffect())
+                Box(Modifier.width(150.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.width(100.dp).height(12.dp).shimmerEffect())
+                Box(Modifier.width(100.dp).height(12.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
             }
         }
     }
