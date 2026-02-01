@@ -44,6 +44,9 @@ import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// Define Purple Color
+val GamePurple = Color(0xFF6200EE)
+
 // --- Game Models ---
 data class MemoryCard(
     val id: Int,
@@ -61,14 +64,11 @@ fun TabTwoScreen() {
     val repo = remember { ProductRepository() }
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     
-    // --- Persistence (SharedPreferences) ---
     val prefs = remember { context.getSharedPreferences("game_prefs", Context.MODE_PRIVATE) }
     
-    // Persisted State
     var totalAccumulatedScore by remember { mutableIntStateOf(prefs.getInt("total_score", 0)) }
     var highScore by remember { mutableIntStateOf(prefs.getInt("high_score", 0)) }
 
-    // Session State
     var cards by remember { mutableStateOf<List<MemoryCard>>(emptyList()) }
     var gameStatus by remember { mutableStateOf(GameStatus.FETCHING_DATA) }
     var sessionScore by remember { mutableIntStateOf(0) }
@@ -76,7 +76,6 @@ fun TabTwoScreen() {
     var timeLeft by remember { mutableIntStateOf(60) }
     var countdownValue by remember { mutableIntStateOf(5) }
     
-    // Logic State
     var selectedIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
     var isProcessing by remember { mutableStateOf(false) }
 
@@ -88,12 +87,8 @@ fun TabTwoScreen() {
         }
     }
 
-    // --- Game Logic ---
-
     fun prepareGame() {
         if (allProducts.isEmpty()) return
-        
-        // Reset Session Variables
         sessionScore = 0
         streakCount = 1
         timeLeft = 60
@@ -102,26 +97,16 @@ fun TabTwoScreen() {
         isProcessing = false
         gameStatus = GameStatus.PRELOADING_IMAGES
 
-        // 1. Select Cards
         val selectedProducts = allProducts.shuffled().take(6)
         val pairs = (selectedProducts + selectedProducts).shuffled()
         
-        // 2. Preload Images
         scope.launch {
             val distinctUrls = selectedProducts.map { getOptimizedUrl(it.imageUrl, width = 200) }
-            
             distinctUrls.forEach { url ->
-                val request = ImageRequest.Builder(context)
-                    .data(url)
-                    .build()
+                val request = ImageRequest.Builder(context).data(url).build()
                 context.imageLoader.execute(request)
             }
-            
-            cards = pairs.mapIndexed { index, product ->
-                MemoryCard(id = index, product = product)
-            }
-
-            // 3. Start Countdown
+            cards = pairs.mapIndexed { index, product -> MemoryCard(id = index, product = product) }
             gameStatus = GameStatus.COUNTDOWN
         }
     }
@@ -164,7 +149,6 @@ fun TabTwoScreen() {
         val newCards = cards.toMutableList()
         newCards[index] = newCards[index].copy(isFlipped = true)
         cards = newCards
-        
         val currentSelection = selectedIndices + index
         selectedIndices = currentSelection
 
@@ -176,20 +160,16 @@ fun TabTwoScreen() {
             val card2 = cards[idx2]
 
             if (card1.product.name == card2.product.name) {
-                // MATCH
                 val points = 100 * streakCount
                 sessionScore += points
                 totalAccumulatedScore += points
                 streakCount += 1
                 saveScores()
-
                 newCards[idx1] = newCards[idx1].copy(isMatched = true)
                 newCards[idx2] = newCards[idx2].copy(isMatched = true)
                 cards = newCards
-                
                 selectedIndices = emptyList()
                 isProcessing = false
-                
                 if (cards.all { it.isMatched }) {
                     gameStatus = GameStatus.WON
                     if (sessionScore > highScore) {
@@ -198,7 +178,6 @@ fun TabTwoScreen() {
                     }
                 }
             } else {
-                // MISMATCH
                 streakCount = 1
             }
         }
@@ -232,49 +211,44 @@ fun TabTwoScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // --- TOP ROW: High Score | Timer | Total Score ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = "High Score: $highScore",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                        )
-                        Text(
-                            text = "Total: $totalAccumulatedScore",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                    // LEFT: High Score
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(text = "High Score", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text(text = "$highScore", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onBackground)
                     }
 
-                    Card(colors = CardDefaults.cardColors(containerColor = KankarejGreen.copy(alpha = 0.1f))) {
+                    // CENTER: Timer
+                    Card(colors = CardDefaults.cardColors(containerColor = GamePurple.copy(alpha = 0.1f))) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Timer, null, tint = KankarejGreen, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Timer, null, tint = GamePurple, modifier = Modifier.size(24.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "${timeLeft}s",
-                                color = KankarejGreen,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                            )
+                            Text(text = "${timeLeft}s", color = GamePurple, fontWeight = FontWeight.Bold, fontSize = 24.sp)
                         }
+                    }
+
+                    // RIGHT: Total Score
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(text = "Total", style = MaterialTheme.typography.labelSmall, color = GamePurple)
+                        Text(text = "$totalAccumulatedScore", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = GamePurple)
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                // CHANGE: Increased spacer to push content down
+                Spacer(modifier = Modifier.height(24.dp)) 
 
+                // --- SECOND ROW: Session Score & Streak ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -282,7 +256,7 @@ fun TabTwoScreen() {
                 ) {
                     Text(
                         text = "Session: $sessionScore",
-                        fontSize = 24.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = KankarejGreen
                     )
@@ -291,13 +265,16 @@ fun TabTwoScreen() {
                         Text(
                             text = "${streakCount}x Streak! 🔥",
                             color = Color(0xFFFF9800),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // CHANGE: Increased spacer between stats and grid
+                Spacer(modifier = Modifier.height(16.dp)) 
 
+                // --- GAME GRID ---
                 if (gameStatus == GameStatus.PLAYING || gameStatus == GameStatus.WON || gameStatus == GameStatus.LOST) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
@@ -318,8 +295,6 @@ fun TabTwoScreen() {
             }
 
             // --- OVERLAYS ---
-
-            // 1. Loading & Countdown Overlay
             AnimatedVisibility(
                 visible = gameStatus == GameStatus.FETCHING_DATA || 
                           gameStatus == GameStatus.PRELOADING_IMAGES || 
@@ -336,59 +311,37 @@ fun TabTwoScreen() {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         if (gameStatus == GameStatus.FETCHING_DATA || gameStatus == GameStatus.PRELOADING_IMAGES) {
-                            CircularProgressIndicator(color = KankarejGreen)
-                            Spacer(Modifier.height(16.dp))
-                            Text("Loading Game Assets...", fontWeight = FontWeight.Medium)
+                            LinearProgressIndicator(
+                                modifier = Modifier.width(200.dp).height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                color = KankarejGreen,
+                                trackColor = KankarejGreen.copy(alpha = 0.3f)
+                            )
                         } else {
                             Image(
                                 painter = painterResource(id = R.drawable.masala_memory),
                                 contentDescription = "Game Logo",
-                                // CHANGE: Use FillWidth and let height adjust to remove vertical gap
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .wrapContentHeight(),
+                                modifier = Modifier.fillMaxWidth(0.9f).wrapContentHeight(),
                                 contentScale = ContentScale.FillWidth
                             )
-                            
-                            // Text immediately follows image
-                            Text(
-                                text = "Begins in...",
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
+                            Text("Begins in...", textAlign = TextAlign.Center, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
                             Spacer(Modifier.height(16.dp))
-                            Text(
-                                text = "$countdownValue",
-                                fontSize = 80.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = KankarejGreen
-                            )
+                            Text("$countdownValue", fontSize = 80.sp, fontWeight = FontWeight.ExtraBold, color = KankarejGreen)
                         }
                     }
                 }
             }
 
-            // 2. Game Over Overlay (Won / Lost)
             if (gameStatus == GameStatus.WON || gameStatus == GameStatus.LOST) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .clickable(enabled = false) {},
+                    modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).clickable(enabled = false) {},
                     contentAlignment = Alignment.Center
                 ) {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth(0.85f).padding(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         elevation = CardDefaults.cardElevation(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 imageVector = if (gameStatus == GameStatus.WON) Icons.Default.EmojiEvents else Icons.Default.Timer,
                                 contentDescription = null,
@@ -396,27 +349,22 @@ fun TabTwoScreen() {
                                 modifier = Modifier.size(64.dp)
                             )
                             Spacer(Modifier.height(16.dp))
-                            
                             Text(
                                 text = if (gameStatus == GameStatus.WON) "Victory!" else "Time's Up!",
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            
                             Spacer(Modifier.height(24.dp))
-                            
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("High Score", color = Color.Gray)
-                                Text("$highScore", fontWeight = FontWeight.Bold)
+                                Text("High Score", color = Color.Gray, fontSize = 18.sp)
+                                Text("$highScore", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             }
                             Divider(modifier = Modifier.padding(vertical = 12.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Session Score", color = KankarejGreen, fontWeight = FontWeight.Bold)
-                                Text("$sessionScore", color = KankarejGreen, fontWeight = FontWeight.Bold)
+                                Text("Session Score", color = KankarejGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text("$sessionScore", color = KankarejGreen, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             }
-                            
                             Spacer(Modifier.height(32.dp))
-                            
                             Button(
                                 onClick = { prepareGame() },
                                 colors = ButtonDefaults.buttonColors(containerColor = KankarejGreen),
@@ -424,7 +372,7 @@ fun TabTwoScreen() {
                             ) {
                                 Icon(Icons.Default.Refresh, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Play Again")
+                                Text("Play Again", fontSize = 18.sp)
                             }
                         }
                     }
@@ -453,16 +401,15 @@ fun GameCardItem(card: MemoryCard, onClick: () -> Unit) {
             .clip(RoundedCornerShape(8.dp))
             .border(
                 width = 2.dp, 
-                color = if (card.isMatched) Color.Green else KankarejGreen.copy(alpha = 0.5f), 
+                // CHANGE: Use GamePurple if matched, otherwise semi-transparent Green
+                color = if (card.isMatched) GamePurple else KankarejGreen.copy(alpha = 0.5f), 
                 shape = RoundedCornerShape(8.dp)
             )
             .background(MaterialTheme.colorScheme.surface)
     ) {
         if (rotation <= 90f) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(KankarejGreen),
+                modifier = Modifier.fillMaxSize().background(KankarejGreen),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
