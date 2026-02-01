@@ -1,7 +1,11 @@
 package com.kankarej.kankarejspices.screens.tabs
 
+import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
@@ -25,9 +30,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.imageLoader
 import coil.request.ImageRequest
 import com.kankarej.kankarejspices.R
 import com.kankarej.kankarejspices.data.ProductRepository
@@ -35,8 +42,9 @@ import com.kankarej.kankarejspices.model.Product
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-// --- Game Models & State ---
+// --- Game Models ---
 data class MemoryCard(
     val id: Int,
     val product: Product,
@@ -44,67 +52,115 @@ data class MemoryCard(
     var isMatched: Boolean = false
 )
 
-enum class GameStatus { LOADING, PLAYING, WON, LOST }
+enum class GameStatus { FETCHING_DATA, PRELOADING_IMAGES, COUNTDOWN, PLAYING, WON, LOST }
 
 @Composable
 fun TabTwoScreen() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val repo = remember { ProductRepository() }
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
+    
+    // --- Persistence (SharedPreferences) ---
+    val prefs = remember { context.getSharedPreferences("game_prefs", Context.MODE_PRIVATE) }
+    
+    // Persisted State
+    var totalAccumulatedScore by remember { mutableIntStateOf(prefs.getInt("total_score", 0)) }
+    var highScore by remember { mutableIntStateOf(prefs.getInt("high_score", 0)) }
 
-    // Game State
+    // Session State
     var cards by remember { mutableStateOf<List<MemoryCard>>(emptyList()) }
-    var gameStatus by remember { mutableStateOf(GameStatus.LOADING) }
-    var score by remember { mutableIntStateOf(0) }
+    var gameStatus by remember { mutableStateOf(GameStatus.FETCHING_DATA) }
+    var sessionScore by remember { mutableIntStateOf(0) }
+    var streakCount by remember { mutableIntStateOf(1) }
     var timeLeft by remember { mutableIntStateOf(60) }
+    var countdownValue by remember { mutableIntStateOf(5) }
     
     // Logic State
     var selectedIndices by remember { mutableStateOf<List<Int>>(emptyList()) }
-    var isProcessing by remember { mutableStateOf(false) } // Block input during flip back
+    var isProcessing by remember { mutableStateOf(false) }
 
-    // --- Game Logic Functions ---
-    fun startNewGame() {
+    fun saveScores() {
+        prefs.edit().apply {
+            putInt("total_score", totalAccumulatedScore)
+            putInt("high_score", highScore)
+            apply()
+        }
+    }
+
+    // --- Game Logic ---
+
+    fun prepareGame() {
         if (allProducts.isEmpty()) return
         
-        // Select 6 random products for 6 pairs (12 cards total)
-        val selectedProducts = allProducts.shuffled().take(6)
-        // Duplicate to make pairs
-        val pairs = (selectedProducts + selectedProducts).shuffled()
-        
-        cards = pairs.mapIndexed { index, product ->
-            MemoryCard(id = index, product = product)
-        }
-        score = 0
+        // Reset Session Variables
+        sessionScore = 0
+        streakCount = 1
         timeLeft = 60
+        countdownValue = 5
         selectedIndices = emptyList()
         isProcessing = false
-        gameStatus = GameStatus.PLAYING
-    }
+        gameStatus = GameStatus.PRELOADING_IMAGES
 
-    // Initialize game once products load
-    LaunchedEffect(allProducts) {
-        if (allProducts.isNotEmpty() && gameStatus == GameStatus.LOADING) {
-            startNewGame()
+        // 1. Select Cards
+        val selectedProducts = allProducts.shuffled().take(6)
+        val pairs = (selectedProducts + selectedProducts).shuffled()
+        
+        // 2. Preload Images
+        scope.launch {
+            val distinctUrls = selectedProducts.map { getOptimizedUrl(it.imageUrl, width = 200) }
+            
+            distinctUrls.forEach { url ->
+                val request = ImageRequest.Builder(context)
+                    .data(url)
+                    .build()
+                context.imageLoader.execute(request)
+            }
+            
+            cards = pairs.mapIndexed { index, product ->
+                MemoryCard(id = index, product = product)
+            }
+
+            // 3. Start Countdown
+            gameStatus = GameStatus.COUNTDOWN
         }
     }
 
-    // Timer Logic
+    LaunchedEffect(allProducts) {
+        if (allProducts.isNotEmpty() && gameStatus == GameStatus.FETCHING_DATA) {
+            prepareGame()
+        }
+    }
+
+    LaunchedEffect(gameStatus) {
+        if (gameStatus == GameStatus.COUNTDOWN) {
+            while (countdownValue > 0) {
+                delay(1000)
+                countdownValue -= 1
+            }
+            gameStatus = GameStatus.PLAYING
+        }
+    }
+
     LaunchedEffect(gameStatus, timeLeft) {
         if (gameStatus == GameStatus.PLAYING) {
             if (timeLeft > 0) {
-                delay(1000L)
+                delay(1000)
                 timeLeft -= 1
             } else {
                 gameStatus = GameStatus.LOST
+                if (sessionScore > highScore) {
+                    highScore = sessionScore
+                    saveScores()
+                }
             }
         }
     }
 
-    // Card Click Handler
     fun onCardClick(index: Int) {
         if (gameStatus != GameStatus.PLAYING || isProcessing) return
         if (cards[index].isFlipped || cards[index].isMatched) return
 
-        // Flip the card
         val newCards = cards.toMutableList()
         newCards[index] = newCards[index].copy(isFlipped = true)
         cards = newCards
@@ -119,37 +175,41 @@ fun TabTwoScreen() {
             val card1 = cards[idx1]
             val card2 = cards[idx2]
 
-            // Check Match
             if (card1.product.name == card2.product.name) {
-                // Match Found
-                score += 100
+                // MATCH
+                val points = 100 * streakCount
+                sessionScore += points
+                totalAccumulatedScore += points
+                streakCount += 1
+                saveScores()
+
                 newCards[idx1] = newCards[idx1].copy(isMatched = true)
                 newCards[idx2] = newCards[idx2].copy(isMatched = true)
                 cards = newCards
+                
                 selectedIndices = emptyList()
                 isProcessing = false
                 
-                // Check Win Condition
                 if (cards.all { it.isMatched }) {
                     gameStatus = GameStatus.WON
+                    if (sessionScore > highScore) {
+                        highScore = sessionScore
+                        saveScores()
+                    }
                 }
             } else {
-                // No Match - Flip back after delay (Logic inside LaunchedEffect usually better, but simplified here)
-                // We cannot launch a coroutine directly inside this callback easily without a scope, 
-                // so we rely on a SideEffect or simply use a separate LaunchedEffect triggered by state.
+                // MISMATCH
+                streakCount = 1
             }
         }
     }
 
-    // Handle Mismatch Delay using LaunchedEffect
     LaunchedEffect(selectedIndices) {
         if (selectedIndices.size == 2) {
             val idx1 = selectedIndices[0]
             val idx2 = selectedIndices[1]
-            // If they are not matched yet, it means it was a mismatch
             if (!cards[idx1].isMatched && !cards[idx2].isMatched) {
-                delay(1000) // Show cards for 1 second
-                // Flip back
+                delay(800)
                 val newCards = cards.toMutableList()
                 newCards[idx1] = newCards[idx1].copy(isFlipped = false)
                 newCards[idx2] = newCards[idx2].copy(isFlipped = false)
@@ -163,56 +223,87 @@ fun TabTwoScreen() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Header ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // --- MAIN GAME UI ---
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Timer
-                Card(colors = CardDefaults.cardColors(containerColor = KankarejGreen.copy(alpha = 0.1f))) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Timer, null, tint = KankarejGreen)
-                        Spacer(Modifier.width(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
                         Text(
-                            text = "${timeLeft}s",
-                            color = KankarejGreen,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                            text = "High Score: $highScore",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray,
+                            fontSize = 14.sp,
                         )
+                        Text(
+                            text = "Total: $totalAccumulatedScore",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+
+                    Card(colors = CardDefaults.cardColors(containerColor = KankarejGreen.copy(alpha = 0.1f))) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Timer, null, tint = KankarejGreen, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "${timeLeft}s",
+                                color = KankarejGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp,
+                            )
+                        }
                     }
                 }
                 
-                // Score
-                Text(
-                    text = "Score: $score",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Game Area ---
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                if (gameStatus == GameStatus.LOADING) {
-                    CircularProgressIndicator(color = KankarejGreen)
-                } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Session: $sessionScore",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = KankarejGreen
+                    )
+                    
+                    if (streakCount > 1) {
+                        Text(
+                            text = "${streakCount}x Streak! 🔥",
+                            color = Color(0xFFFF9800),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (gameStatus == GameStatus.PLAYING || gameStatus == GameStatus.WON || gameStatus == GameStatus.LOST) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         itemsIndexed(cards) { index, card ->
                             GameCardItem(
@@ -221,35 +312,115 @@ fun TabTwoScreen() {
                             )
                         }
                     }
+                } else {
+                    Box(modifier = Modifier.weight(1f))
                 }
+            }
 
-                // --- Game Over Overlay ---
-                if (gameStatus == GameStatus.WON || gameStatus == GameStatus.LOST) {
+            // --- OVERLAYS ---
+
+            // 1. Loading & Countdown Overlay
+            AnimatedVisibility(
+                visible = gameStatus == GameStatus.FETCHING_DATA || 
+                          gameStatus == GameStatus.PRELOADING_IMAGES || 
+                          gameStatus == GameStatus.COUNTDOWN,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.95f))
+                        .clickable(enabled = false) {},
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (gameStatus == GameStatus.FETCHING_DATA || gameStatus == GameStatus.PRELOADING_IMAGES) {
+                            CircularProgressIndicator(color = KankarejGreen)
+                            Spacer(Modifier.height(16.dp))
+                            Text("Loading Game Assets...", fontWeight = FontWeight.Medium)
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.masala_memory),
+                                contentDescription = "Game Logo",
+                                // CHANGE: Use FillWidth and let height adjust to remove vertical gap
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .wrapContentHeight(),
+                                contentScale = ContentScale.FillWidth
+                            )
+                            
+                            // Text immediately follows image
+                            Text(
+                                text = "Begins in...",
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "$countdownValue",
+                                fontSize = 80.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = KankarejGreen
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Game Over Overlay (Won / Lost)
+            if (gameStatus == GameStatus.WON || gameStatus == GameStatus.LOST) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .clickable(enabled = false) {},
+                    contentAlignment = Alignment.Center
+                ) {
                     Card(
-                        elevation = CardDefaults.cardElevation(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .padding(16.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        modifier = Modifier.padding(32.dp)
+                        elevation = CardDefaults.cardElevation(12.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = if (gameStatus == GameStatus.WON) "🎉 You Won!" else "⌛ Time's Up!",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (gameStatus == GameStatus.WON) KankarejGreen else Color.Red
+                            Icon(
+                                imageVector = if (gameStatus == GameStatus.WON) Icons.Default.EmojiEvents else Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = if (gameStatus == GameStatus.WON) Color(0xFFFFD700) else Color.Red,
+                                modifier = Modifier.size(64.dp)
                             )
                             Spacer(Modifier.height(16.dp))
+                            
                             Text(
-                                text = "Final Score: $score",
-                                fontSize = 18.sp,
+                                text = if (gameStatus == GameStatus.WON) "Victory!" else "Time's Up!",
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            
                             Spacer(Modifier.height(24.dp))
+                            
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("High Score", color = Color.Gray)
+                                Text("$highScore", fontWeight = FontWeight.Bold)
+                            }
+                            Divider(modifier = Modifier.padding(vertical = 12.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Session Score", color = KankarejGreen, fontWeight = FontWeight.Bold)
+                                Text("$sessionScore", color = KankarejGreen, fontWeight = FontWeight.Bold)
+                            }
+                            
+                            Spacer(Modifier.height(32.dp))
+                            
                             Button(
-                                onClick = { startNewGame() },
-                                colors = ButtonDefaults.buttonColors(containerColor = KankarejGreen)
+                                onClick = { prepareGame() },
+                                colors = ButtonDefaults.buttonColors(containerColor = KankarejGreen),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.Refresh, null)
                                 Spacer(Modifier.width(8.dp))
@@ -273,7 +444,7 @@ fun GameCardItem(card: MemoryCard, onClick: () -> Unit) {
 
     Box(
         modifier = Modifier
-            .aspectRatio(0.8f) // Card Shape
+            .aspectRatio(0.8f)
             .graphicsLayer {
                 rotationY = rotation
                 cameraDistance = 12f * density
@@ -288,14 +459,12 @@ fun GameCardItem(card: MemoryCard, onClick: () -> Unit) {
             .background(MaterialTheme.colorScheme.surface)
     ) {
         if (rotation <= 90f) {
-            // BACK OF CARD (Visible when 0-90 deg)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(KankarejGreen),
                 contentAlignment = Alignment.Center
             ) {
-                // Use the secondary logo for the back design
                 Image(
                     painter = painterResource(id = R.drawable.app_header_logo2),
                     contentDescription = null,
@@ -304,8 +473,6 @@ fun GameCardItem(card: MemoryCard, onClick: () -> Unit) {
                 )
             }
         } else {
-            // FRONT OF CARD (Visible when 90-180 deg)
-            // We rotate content 180 again so it doesn't look mirrored
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -316,12 +483,10 @@ fun GameCardItem(card: MemoryCard, onClick: () -> Unit) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(getOptimizedUrl(card.product.imageUrl, width = 200))
-                        .crossfade(true)
+                        .crossfade(false)
                         .build(),
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(4.dp),
+                    modifier = Modifier.fillMaxSize().padding(4.dp),
                     contentScale = ContentScale.Fit
                 )
             }
