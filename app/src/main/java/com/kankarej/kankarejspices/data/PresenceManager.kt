@@ -13,7 +13,7 @@ import java.util.Locale
 
 class PresenceManager {
 
-    // CHANGE: Explicitly use your Asia-Southeast1 URL
+    // Ensure this matches your specific database URL
     private val dbUrl = "https://kankarej-spices-default-rtdb.asia-southeast1.firebasedatabase.app"
     private val db = FirebaseDatabase.getInstance(dbUrl)
     
@@ -27,10 +27,14 @@ class PresenceManager {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val connected = snapshot.getValue(Boolean::class.java) ?: false
                 if (connected) {
-                    Log.d("PresenceManager", "Connected to Firebase! Writing session...")
+                    Log.d("PresenceManager", "Connected to Firebase! Setting up session...")
 
-                    // 1. Live Session (Auto-delete on disconnect)
+                    // ---------------------------------------------------------
+                    // 1. LIVE COUNT (active_sessions)
+                    // ---------------------------------------------------------
                     val sessionRef = rootRef.child("active_sessions").push()
+                    
+                    // Auto-delete this node when user disconnects (Live count goes down)
                     sessionRef.onDisconnect().removeValue()
 
                     val sessionData = mapOf(
@@ -38,25 +42,28 @@ class PresenceManager {
                         "login_time" to ServerValue.TIMESTAMP,
                         "platform" to "Android"
                     )
-                    
-                    // Add a completion listener to check for Permission Errors
                     sessionRef.setValue(sessionData)
-                        .addOnSuccessListener { 
-                            Log.d("PresenceManager", "Session written successfully.") 
-                        }
-                        .addOnFailureListener { e -> 
-                            Log.e("PresenceManager", "Failed to write session. Check Rules!", e) 
-                        }
 
-                    // 2. Permanent History
+                    // ---------------------------------------------------------
+                    // 2. PERMANENT HISTORY (session_history)
+                    // ---------------------------------------------------------
                     val historyRef = rootRef.child("session_history").push()
+                    
                     val historyData = mapOf(
                         "device" to deviceName,
-                        "timestamp" to ServerValue.TIMESTAMP,
-                        "readable_time" to getCurrentDateTime(),
-                        "action" to "SESSION_START"
+                        "start_time" to ServerValue.TIMESTAMP,
+                        "start_time_readable" to getCurrentDateTime(),
+                        "end_time" to "Active..." // Placeholder until they disconnect
                     )
                     historyRef.setValue(historyData)
+
+                    // MAGIC STEP: Tell server to write the 'end_time' AUTOMATICALLY when we disconnect
+                    val updates = mapOf(
+                        "end_time" to ServerValue.TIMESTAMP,
+                        "status" to "Disconnected"
+                    )
+                    historyRef.onDisconnect().updateChildren(updates)
+
                 } else {
                     Log.d("PresenceManager", "Not connected to Firebase yet...")
                 }
