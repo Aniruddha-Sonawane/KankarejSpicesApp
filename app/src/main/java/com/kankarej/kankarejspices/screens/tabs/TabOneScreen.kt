@@ -1,5 +1,8 @@
 package com.kankarej.kankarejspices.screens.tabs
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -14,21 +17,29 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -46,51 +57,53 @@ import com.kankarej.kankarejspices.ui.theme.SkeletonHomeScreen
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 val LightGreenBg = Color(0xFFB9E4C9)
 
 // First screenful shown immediately.
 private const val INITIAL_PAGE = 20
 
-// How many products get appended per "load more" trigger while scrolling.
-// Smaller pages = less composition/layout work per burst = smoother scroll,
-// while still feeling continuous like a real e-commerce feed.
+// How many products get appended per "load more" trigger.
 private const val PAGE_SIZE = 16
 
-// Start loading the next batch this many items before the end of what's
-// currently rendered in the grid (banner/category/header rows included).
-private const val LOAD_MORE_BUFFER = 6
-
 // Grid thumbnails are shown at roughly half-screen width, so we don't need
-// full 600px images here - this cuts network + decode cost noticeably,
-// which is most of what was causing scroll jank.
+// full 600px images here - this cuts network + decode cost noticeably.
 private const val GRID_THUMB_WIDTH = 360
+
+// How far (in dp) the user must pull past the bottom edge before release
+// triggers loading the next batch - mirrors a pull-to-refresh threshold.
+private const val PULL_THRESHOLD_DP = 72f
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TabOneScreen(rootNav: NavController) {
     val repo = remember { ProductRepository() }
     val context = LocalContext.current
-    
+
     // FETCH DATA
     val categories by repo.getCategoriesFlow().collectAsState(initial = emptyList())
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     val banners by repo.getBannersFlow().collectAsState(initial = emptyList())
-    
-    var displayedCount by remember { mutableIntStateOf(INITIAL_PAGE) }
-    
-    // Randomize products once when data is loaded
-    val randomProducts = remember(allProducts) { allProducts.shuffled() }
-    
-    val displayedProducts by remember(randomProducts, displayedCount) {
-        derivedStateOf { randomProducts.take(displayedCount) }
-    }
 
-    // Reset paging if the underlying product set changes (e.g. Firebase pushes an update).
-    LaunchedEffect(randomProducts) {
-        displayedCount = minOf(INITIAL_PAGE, randomProducts.size).coerceAtLeast(0)
-        if (randomProducts.isNotEmpty()) {
+    // Stable shuffled list. We deliberately do NOT key this off every new
+    // 'allProducts' reference - Firebase's ValueEventListener re-fires
+    // onDataChange on things like reconnects even when the underlying data
+    // hasn't actually changed, which would otherwise reshuffle the list and
+    // silently reset scroll/paging progress back to the start. We only
+    // rebuild when the actual set of product names changes.
+    var randomProducts by remember { mutableStateOf<List<Product>>(emptyList()) }
+    var displayedCount by remember { mutableIntStateOf(INITIAL_PAGE) }
+
+    LaunchedEffect(allProducts) {
+        if (allProducts.isEmpty()) return@LaunchedEffect
+
+        val currentNames = randomProducts.map { it.name }.toSet()
+        val newNames = allProducts.map { it.name }.toSet()
+
+        if (randomProducts.isEmpty() || currentNames != newNames) {
+            randomProducts = allProducts.shuffled()
+            displayedCount = minOf(INITIAL_PAGE, randomProducts.size)
+
             // Preload the first screenful of images up front.
             randomProducts.take(INITIAL_PAGE).forEach { product ->
                 val request = ImageRequest.Builder(context)
@@ -101,45 +114,68 @@ fun TabOneScreen(rootNav: NavController) {
         }
     }
 
-    val gridState = rememberLazyGridState()
+    val displayedProducts by remember(randomProducts, displayedCount) {
+        derivedStateOf { randomProducts.take(displayedCount) }
+    }
 
-    // Real infinite-scroll pattern: continuously watch scroll position rather
-    // than gating on a Boolean flag. A Boolean-keyed LaunchedEffect can only
-    // fire once per true/false transition - if it stays "true" for several
-    // frames (which it easily can once you're partway down a long list), it
-    // never re-fires and loading gets permanently stuck. Streaming the raw
-    // scroll position instead means every new scroll position is evaluated,
-    // so batches keep loading one after another as you keep scrolling, the
-    // same way Amazon/Flipkart-style feeds behave.
-    LaunchedEffect(gridState) {
-        snapshotFlow {
-            val info = gridState.layoutInfo
-            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisibleIndex to info.totalItemsCount
-        }
-            .distinctUntilChanged()
-            .collect { (lastVisibleIndex, totalItemsCount) ->
-                if (totalItemsCount > 0 &&
-                    lastVisibleIndex >= totalItemsCount - LOAD_MORE_BUFFER &&
-                    displayedCount < randomProducts.size
-                ) {
+    val gridState = rememberLazyGridState()
+    val density = LocalDensity.current
+    val thresholdPx = with(density) { PULL_THRESHOLD_DP.dp.toPx() }
+
+    // --- Pull-up-past-the-bottom gesture (like pull-to-refresh, but upward) ---
+    var isLoadingMore by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
+    // Raw drag offset, written synchronously on every scroll delta - no
+    // coroutine launch per frame, which is what was causing the stutter.
+    var pullRaw by remember { mutableFloatStateOf(0f) }
+    val hasMore = displayedCount < randomProducts.size
+
+    // While dragging: snap 1:1 to the finger, zero animation overhead.
+    // On release: animate back to 0 smoothly.
+    val pullOffset by animateFloatAsState(
+        targetValue = if (isDragging) pullRaw else 0f,
+        animationSpec = if (isDragging) snap() else tween(250),
+        label = "PullOffset"
+    )
+
+    val nestedScrollConnection = remember(hasMore, displayedCount, randomProducts) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // available.y < 0 means the user is still dragging upward
+                // (trying to scroll further down) after the grid itself can
+                // no longer consume that scroll - i.e. genuine overscroll
+                // past the bottom edge, not just "reached the last item".
+                if (hasMore && !isLoadingMore && !gridState.canScrollForward && available.y < 0) {
+                    isDragging = true
+                    pullRaw = (pullRaw + available.y).coerceIn(-thresholdPx * 1.6f, 0f)
+                    return available
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (hasMore && !isLoadingMore && pullRaw <= -thresholdPx) {
+                    isLoadingMore = true
                     val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
                     val nextBatch = randomProducts.subList(displayedCount, nextEnd)
-
-                    // Prefetch the next batch's images before they're actually
-                    // revealed, so by the time the grid grows, most images are
-                    // already in Coil's cache and paint instantly - this is
-                    // what makes it feel "instant" instead of popping in.
                     nextBatch.forEach { product ->
                         val request = ImageRequest.Builder(context)
                             .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
                             .build()
                         context.imageLoader.enqueue(request)
                     }
-
                     displayedCount = nextEnd
+                    isLoadingMore = false
                 }
+                isDragging = false
+                pullRaw = 0f
+                return Velocity.Zero
             }
+        }
     }
 
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -175,15 +211,15 @@ fun TabOneScreen(rootNav: NavController) {
                                 .wrapContentWidth(Alignment.Start),
                             contentScale = ContentScale.Fit
                         )
-                        
+
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
                         Icon(
-                            Icons.Default.Search, 
-                            "Search", 
+                            Icons.Default.Search,
+                            "Search",
                             tint = if (isDarkTheme) Color.White else KankarejGreen,
                             modifier = Modifier.size(32.dp)
                         )
@@ -196,7 +232,7 @@ fun TabOneScreen(rootNav: NavController) {
             )
         }
     ) { paddingValues ->
-        
+
         val backgroundModifier = if (isDarkTheme) {
             Modifier.background(MaterialTheme.colorScheme.surface)
         } else {
@@ -207,10 +243,12 @@ fun TabOneScreen(rootNav: NavController) {
             )
         }
 
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
-            .then(backgroundModifier)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .then(backgroundModifier)
+                .nestedScroll(nestedScrollConnection)
         ) {
             if (allProducts.isEmpty() && categories.isEmpty() && banners.isEmpty()) {
                 SkeletonHomeScreen()
@@ -218,10 +256,13 @@ fun TabOneScreen(rootNav: NavController) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     state = gridState,
-                    contentPadding = PaddingValues(bottom = 80.dp),
+                    // Small resting padding only - the pull footer supplies
+                    // its own space during drag/load, so we don't need a
+                    // permanent large bottom gap anymore.
+                    contentPadding = PaddingValues(bottom = 8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    
+
                     item(key = "banner", span = { GridItemSpan(2) }) {
                         FullWidthBannerPager(banners)
                     }
@@ -233,7 +274,7 @@ fun TabOneScreen(rootNav: NavController) {
                             }
                         }
                     }
-                    
+
                     item(key = "featured_header", span = { GridItemSpan(2) }) {
                         Column {
                             Box(
@@ -243,7 +284,7 @@ fun TabOneScreen(rootNav: NavController) {
                                     .background(if (isDarkTheme) Color.Gray else Color.Black)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            
+
                             Text(
                                 text = "Featured Products",
                                 style = MaterialTheme.typography.titleLarge.copy(
@@ -263,17 +304,54 @@ fun TabOneScreen(rootNav: NavController) {
                             rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                         }
                     }
-                    
-                    if (displayedCount < randomProducts.size) {
-                         item(key = "loading_more", span = { GridItemSpan(2) }) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = KankarejGreen)
-                            }
+
+                    // Footer only occupies space while the user is actively
+                    // pulling past the bottom edge, or while a batch is
+                    // loading - it disappears entirely once there's nothing
+                    // left to load, and never reserves permanent blank space.
+                    if (hasMore) {
+                        item(key = "pull_footer", span = { GridItemSpan(2) }) {
+                            PullUpFooter(
+                                pullOffsetPx = pullOffset,
+                                thresholdPx = thresholdPx,
+                                isLoading = isLoadingMore
+                            )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PullUpFooter(pullOffsetPx: Float, thresholdPx: Float, isLoading: Boolean) {
+    val density = LocalDensity.current
+    val dragHeightDp = with(density) { (-pullOffsetPx).coerceAtLeast(0f).toDp() }
+    val height = if (isLoading) 56.dp else dragHeightDp.coerceAtMost(90.dp)
+    val progress = ((-pullOffsetPx) / thresholdPx).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier.fillMaxWidth().height(height),
+        contentAlignment = Alignment.Center
+    ) {
+        if (height > 8.dp) {
+            if (isLoading) {
+                CircularProgressIndicator(color = KankarejGreen, modifier = Modifier.size(28.dp))
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        tint = KankarejGreen,
+                        modifier = Modifier.size(20.dp).rotate(if (progress >= 1f) 180f else 0f)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (progress >= 1f) "Release to load more" else "Pull up to load more",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = KankarejGreen
+                    )
                 }
             }
         }
@@ -287,7 +365,7 @@ fun FullWidthBannerPager(banners: List<Banner>) {
 
     val startIndex = Int.MAX_VALUE / 2
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { Int.MAX_VALUE })
-    
+
     LaunchedEffect(Unit) {
         while (true) {
             delay(5000)
@@ -328,12 +406,12 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
         Text(
             text = "Categories",
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold, 
+                fontWeight = FontWeight.Bold,
                 color = if (isDarkTheme) Color.White else KankarejGreen
             ),
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
         )
-        
+
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
