@@ -144,7 +144,7 @@ fun SearchScreen(navController: NavController) {
                             }
                         }
                     } else {
-                        items(searchResults) { product ->
+                        items(items = searchResults, key = { it.name }) { product ->
                             ProductGridItem(product) {
                                 addToHistory(query)
                                 navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))

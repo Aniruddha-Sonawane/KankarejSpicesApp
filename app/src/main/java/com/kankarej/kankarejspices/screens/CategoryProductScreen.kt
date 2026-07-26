@@ -56,7 +56,7 @@ fun CategoryProductScreen(navController: NavController, categoryName: String) {
             if (allProducts.isEmpty()) {
                 items(6) { SkeletonProductItem() }
             } else {
-                items(categoryProducts) { product ->
+                items(items = categoryProducts, key = { it.name }) { product ->
                     ProductGridItem(product) {
                         navController.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                     }

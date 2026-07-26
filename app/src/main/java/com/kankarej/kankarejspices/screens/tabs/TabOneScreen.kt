@@ -12,9 +12,9 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +49,15 @@ import kotlinx.coroutines.delay
 
 val LightGreenBg = Color(0xFFB9E4C9)
 
+// How many products get added per "load more" trigger while scrolling.
+// Smaller pages = less composition/layout work per burst = smoother scroll.
+private const val PAGE_SIZE = 12
+
+// Grid thumbnails are shown at roughly half-screen width, so we don't need
+// full 600px images here - this cuts network + decode cost noticeably,
+// which is most of what was causing scroll jank.
+private const val GRID_THUMB_WIDTH = 360
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TabOneScreen(rootNav: NavController) {
@@ -63,18 +71,19 @@ fun TabOneScreen(rootNav: NavController) {
     
     var displayedCount by remember { mutableIntStateOf(20) }
     
-    // CHANGE: Randomize products once when data is loaded
+    // Randomize products once when data is loaded
     val randomProducts = remember(allProducts) { allProducts.shuffled() }
     
     val displayedProducts by remember(randomProducts, displayedCount) {
         derivedStateOf { randomProducts.take(displayedCount) }
     }
 
+    // Preload the first screenful of images up front.
     LaunchedEffect(randomProducts) {
         if (randomProducts.isNotEmpty()) {
             randomProducts.take(20).forEach { product ->
                 val request = ImageRequest.Builder(context)
-                    .data(getOptimizedUrl(product.imageUrl))
+                    .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
                     .build()
                 context.imageLoader.enqueue(request)
             }
@@ -82,16 +91,33 @@ fun TabOneScreen(rootNav: NavController) {
     }
 
     val gridState = rememberLazyGridState()
+
+    // Trigger earlier (8 items from the end instead of 4) so the next batch's
+    // images have time to arrive in cache *before* they actually scroll into
+    // view, instead of popping in mid-scroll.
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisibleItem != null && lastVisibleItem.index >= displayedProducts.size - 4
+            lastVisibleItem != null && lastVisibleItem.index >= displayedProducts.size - 8
         }
     }
 
-    LaunchedEffect(shouldLoadMore) {
+    LaunchedEffect(shouldLoadMore, randomProducts) {
         if (shouldLoadMore && displayedCount < randomProducts.size) {
-            displayedCount += 20
+            val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
+            val nextBatch = randomProducts.subList(displayedCount, nextEnd)
+
+            // Kick off prefetching the next batch's images before they're
+            // actually revealed, so by the time the grid grows, most images
+            // are already in Coil's cache and just paint instantly.
+            nextBatch.forEach { product ->
+                val request = ImageRequest.Builder(context)
+                    .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
+                    .build()
+                context.imageLoader.enqueue(request)
+            }
+
+            displayedCount = nextEnd
         }
     }
 
@@ -134,7 +160,6 @@ fun TabOneScreen(rootNav: NavController) {
                 },
                 actions = {
                     IconButton(onClick = { rootNav.navigate(Routes.SEARCH) }) {
-                        // CHANGE: Increased search icon size to 32.dp
                         Icon(
                             Icons.Default.Search, 
                             "Search", 
@@ -176,19 +201,19 @@ fun TabOneScreen(rootNav: NavController) {
                     modifier = Modifier.fillMaxSize()
                 ) {
                     
-                    item(span = { GridItemSpan(2) }) {
+                    item(key = "banner", span = { GridItemSpan(2) }) {
                         FullWidthBannerPager(banners)
                     }
 
                     if (categories.isNotEmpty()) {
-                        item(span = { GridItemSpan(2) }) {
+                        item(key = "categories", span = { GridItemSpan(2) }) {
                             CategorySection(categories) { catName ->
                                 rootNav.navigate(Routes.CATEGORY_LIST.replace("{categoryName}", catName))
                             }
                         }
                     }
                     
-                    item(span = { GridItemSpan(2) }) {
+                    item(key = "featured_header", span = { GridItemSpan(2) }) {
                         Column {
                             Box(
                                 modifier = Modifier
@@ -209,14 +234,17 @@ fun TabOneScreen(rootNav: NavController) {
                         }
                     }
 
-                    items(displayedProducts) { product ->
+                    items(
+                        items = displayedProducts,
+                        key = { product -> product.name }
+                    ) { product ->
                         ProductGridItem(product) {
                             rootNav.navigate(Routes.PRODUCT_DETAIL.replace("{productName}", product.name))
                         }
                     }
                     
                     if (displayedCount < randomProducts.size) {
-                         item(span = { GridItemSpan(2) }) {
+                         item(key = "loading_more", span = { GridItemSpan(2) }) {
                             Box(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 contentAlignment = Alignment.Center
@@ -289,7 +317,7 @@ fun CategorySection(categories: List<Category>, onCategoryClick: (String) -> Uni
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(categories) { category ->
+            items(items = categories, key = { it.name }) { category ->
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.clickable { onCategoryClick(category.name) }
@@ -329,8 +357,11 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
             Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(getOptimizedUrl(product.imageUrl))
-                        .crossfade(true)
+                        .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
+                        // Crossfade looks nice for hero/detail images, but running it on
+                        // every grid item during a fast scroll is what was causing the
+                        // jittery feel - disable it here specifically.
+                        .crossfade(false)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -359,8 +390,19 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                         style = MaterialTheme.typography.bodyLarge.copy(color = KankarejGreen, fontWeight = FontWeight.Bold)
                     )
                     Spacer(Modifier.weight(1f))
-                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                    Text(text = "${product.rating}", style = MaterialTheme.typography.bodySmall)
+                    if (product.quantity.isNotBlank()) {
+                        Surface(
+                            color = KankarejGreen.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = product.quantity,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = KankarejGreen,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
