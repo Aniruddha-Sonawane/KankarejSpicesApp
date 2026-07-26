@@ -24,7 +24,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -70,9 +69,10 @@ private const val PAGE_SIZE = 16
 // full 600px images here - this cuts network + decode cost noticeably.
 private const val GRID_THUMB_WIDTH = 360
 
-// How far (in dp) the user must pull past the bottom edge before release
-// triggers loading the next batch - mirrors a pull-to-refresh threshold.
-private const val PULL_THRESHOLD_DP = 72f
+// How far (in dp) the user must pull past the bottom edge before it
+// triggers loading the next batch. Crossing this while still dragging
+// (no release needed) fires the load immediately.
+private const val PULL_THRESHOLD_DP = 56f
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -122,7 +122,8 @@ fun TabOneScreen(rootNav: NavController) {
     val density = LocalDensity.current
     val thresholdPx = with(density) { PULL_THRESHOLD_DP.dp.toPx() }
 
-    // --- Pull-up-past-the-bottom gesture (like pull-to-refresh, but upward) ---
+    // --- Pull-up-past-the-bottom gesture ---
+    // Loads as soon as the drag crosses the threshold - no release needed.
     var isLoadingMore by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
     // Raw drag offset, written synchronously on every scroll delta - no
@@ -131,12 +132,30 @@ fun TabOneScreen(rootNav: NavController) {
     val hasMore = displayedCount < randomProducts.size
 
     // While dragging: snap 1:1 to the finger, zero animation overhead.
-    // On release: animate back to 0 smoothly.
+    // Once the drag ends (or a load fires and resets it): animate back to 0.
     val pullOffset by animateFloatAsState(
         targetValue = if (isDragging) pullRaw else 0f,
-        animationSpec = if (isDragging) snap() else tween(250),
+        animationSpec = if (isDragging) snap() else tween(220),
         label = "PullOffset"
     )
+
+    fun loadNextBatch() {
+        isLoadingMore = true
+        val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
+        val nextBatch = randomProducts.subList(displayedCount, nextEnd)
+        nextBatch.forEach { product ->
+            val request = ImageRequest.Builder(context)
+                .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
+                .build()
+            context.imageLoader.enqueue(request)
+        }
+        displayedCount = nextEnd
+        isLoadingMore = false
+        // Snap the pull gesture closed immediately - the batch already loaded,
+        // no need to keep holding the footer open or wait for a release.
+        isDragging = false
+        pullRaw = 0f
+    }
 
     val nestedScrollConnection = remember(hasMore, displayedCount, randomProducts) {
         object : NestedScrollConnection {
@@ -152,25 +171,20 @@ fun TabOneScreen(rootNav: NavController) {
                 if (hasMore && !isLoadingMore && !gridState.canScrollForward && available.y < 0) {
                     isDragging = true
                     pullRaw = (pullRaw + available.y).coerceIn(-thresholdPx * 1.6f, 0f)
+
+                    // Fire the load the moment the pull crosses the threshold -
+                    // no release/lift-finger required.
+                    if (pullRaw <= -thresholdPx) {
+                        loadNextBatch()
+                    }
                     return available
                 }
                 return Offset.Zero
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (hasMore && !isLoadingMore && pullRaw <= -thresholdPx) {
-                    isLoadingMore = true
-                    val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
-                    val nextBatch = randomProducts.subList(displayedCount, nextEnd)
-                    nextBatch.forEach { product ->
-                        val request = ImageRequest.Builder(context)
-                            .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
-                            .build()
-                        context.imageLoader.enqueue(request)
-                    }
-                    displayedCount = nextEnd
-                    isLoadingMore = false
-                }
+                // If the user lifted their finger before crossing the
+                // threshold, just snap the footer closed.
                 isDragging = false
                 pullRaw = 0f
                 return Velocity.Zero
@@ -181,6 +195,15 @@ fun TabOneScreen(rootNav: NavController) {
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Scaffold(
+        // Disable inset consumption here: the outer TabsNav Scaffold already
+        // leaves room for its bottom NavigationBar, and that NavigationBar
+        // applies its own navigation-bar insets internally. If this inner
+        // Scaffold also consumed the systemBars bottom inset by default, the
+        // same inset gets applied twice - once by NavigationBar, once here -
+        // producing a blank gap directly above the bottom nav bar. The
+        // TopAppBar handles its own status-bar inset internally regardless,
+        // so disabling it here doesn't affect the top.
+        contentWindowInsets = WindowInsets(0),
         topBar = {
             TopAppBar(
                 modifier = Modifier.shadow(4.dp),
@@ -306,14 +329,13 @@ fun TabOneScreen(rootNav: NavController) {
                     }
 
                     // Footer only occupies space while the user is actively
-                    // pulling past the bottom edge, or while a batch is
-                    // loading - it disappears entirely once there's nothing
+                    // pulling past the bottom edge, or briefly while a batch
+                    // loads - it disappears entirely once there's nothing
                     // left to load, and never reserves permanent blank space.
                     if (hasMore) {
                         item(key = "pull_footer", span = { GridItemSpan(2) }) {
                             PullUpFooter(
                                 pullOffsetPx = pullOffset,
-                                thresholdPx = thresholdPx,
                                 isLoading = isLoadingMore
                             )
                         }
@@ -325,11 +347,10 @@ fun TabOneScreen(rootNav: NavController) {
 }
 
 @Composable
-private fun PullUpFooter(pullOffsetPx: Float, thresholdPx: Float, isLoading: Boolean) {
+private fun PullUpFooter(pullOffsetPx: Float, isLoading: Boolean) {
     val density = LocalDensity.current
     val dragHeightDp = with(density) { (-pullOffsetPx).coerceAtLeast(0f).toDp() }
-    val height = if (isLoading) 56.dp else dragHeightDp.coerceAtMost(90.dp)
-    val progress = ((-pullOffsetPx) / thresholdPx).coerceIn(0f, 1f)
+    val height = if (isLoading) 56.dp else dragHeightDp.coerceAtMost(80.dp)
 
     Box(
         modifier = Modifier.fillMaxWidth().height(height),
@@ -344,11 +365,11 @@ private fun PullUpFooter(pullOffsetPx: Float, thresholdPx: Float, isLoading: Boo
                         Icons.Default.KeyboardArrowUp,
                         contentDescription = null,
                         tint = KankarejGreen,
-                        modifier = Modifier.size(20.dp).rotate(if (progress >= 1f) 180f else 0f)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = if (progress >= 1f) "Release to load more" else "Pull up to load more",
+                        text = "Pull up to load more",
                         style = MaterialTheme.typography.bodySmall,
                         color = KankarejGreen
                     )
