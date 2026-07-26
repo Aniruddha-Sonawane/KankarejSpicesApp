@@ -1,6 +1,7 @@
 package com.kankarej.kankarejspices.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,21 @@ fun TabsNav(
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
+        // FIX: This outer Scaffold wraps per-tab screens that each have their
+        // own inner Scaffold (e.g. TabOneScreen, ModalScreen with a TopAppBar).
+        // By default, Scaffold consumes top/bottom window insets and passes the
+        // remainder down via padding. Since the inner Scaffolds also consume
+        // insets independently, the top status-bar inset was being applied
+        // twice, pushing inner TopAppBars down and leaving blank space above
+        // them. Disabling inset consumption here (contentWindowInsets =
+        // WindowInsets(0)) makes this outer Scaffold purely a layout
+        // container for the bottom navigation bar, and lets each inner screen
+        // handle window insets exactly once, correctly.
+        //
+        // Note: this does NOT break bottom-bar inset handling — NavigationBar
+        // applies its own navigation-bar insets internally regardless of what
+        // the parent Scaffold passes down.
+        contentWindowInsets = WindowInsets(0),
         bottomBar = {
             Surface(
                 modifier = Modifier.shadow(elevation = 8.dp),
