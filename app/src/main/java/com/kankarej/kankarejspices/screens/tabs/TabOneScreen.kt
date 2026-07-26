@@ -46,12 +46,21 @@ import com.kankarej.kankarejspices.ui.theme.SkeletonHomeScreen
 import com.kankarej.kankarejspices.ui.theme.shimmerEffect
 import com.kankarej.kankarejspices.util.getOptimizedUrl
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 val LightGreenBg = Color(0xFFB9E4C9)
 
-// How many products get added per "load more" trigger while scrolling.
-// Smaller pages = less composition/layout work per burst = smoother scroll.
-private const val PAGE_SIZE = 12
+// First screenful shown immediately.
+private const val INITIAL_PAGE = 20
+
+// How many products get appended per "load more" trigger while scrolling.
+// Smaller pages = less composition/layout work per burst = smoother scroll,
+// while still feeling continuous like a real e-commerce feed.
+private const val PAGE_SIZE = 16
+
+// Start loading the next batch this many items before the end of what's
+// currently rendered in the grid (banner/category/header rows included).
+private const val LOAD_MORE_BUFFER = 6
 
 // Grid thumbnails are shown at roughly half-screen width, so we don't need
 // full 600px images here - this cuts network + decode cost noticeably,
@@ -69,7 +78,7 @@ fun TabOneScreen(rootNav: NavController) {
     val allProducts by repo.getProductsFlow().collectAsState(initial = emptyList())
     val banners by repo.getBannersFlow().collectAsState(initial = emptyList())
     
-    var displayedCount by remember { mutableIntStateOf(20) }
+    var displayedCount by remember { mutableIntStateOf(INITIAL_PAGE) }
     
     // Randomize products once when data is loaded
     val randomProducts = remember(allProducts) { allProducts.shuffled() }
@@ -78,10 +87,12 @@ fun TabOneScreen(rootNav: NavController) {
         derivedStateOf { randomProducts.take(displayedCount) }
     }
 
-    // Preload the first screenful of images up front.
+    // Reset paging if the underlying product set changes (e.g. Firebase pushes an update).
     LaunchedEffect(randomProducts) {
+        displayedCount = minOf(INITIAL_PAGE, randomProducts.size).coerceAtLeast(0)
         if (randomProducts.isNotEmpty()) {
-            randomProducts.take(20).forEach { product ->
+            // Preload the first screenful of images up front.
+            randomProducts.take(INITIAL_PAGE).forEach { product ->
                 val request = ImageRequest.Builder(context)
                     .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
                     .build()
@@ -92,33 +103,43 @@ fun TabOneScreen(rootNav: NavController) {
 
     val gridState = rememberLazyGridState()
 
-    // Trigger earlier (8 items from the end instead of 4) so the next batch's
-    // images have time to arrive in cache *before* they actually scroll into
-    // view, instead of popping in mid-scroll.
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val lastVisibleItem = gridState.layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisibleItem != null && lastVisibleItem.index >= displayedProducts.size - 8
+    // Real infinite-scroll pattern: continuously watch scroll position rather
+    // than gating on a Boolean flag. A Boolean-keyed LaunchedEffect can only
+    // fire once per true/false transition - if it stays "true" for several
+    // frames (which it easily can once you're partway down a long list), it
+    // never re-fires and loading gets permanently stuck. Streaming the raw
+    // scroll position instead means every new scroll position is evaluated,
+    // so batches keep loading one after another as you keep scrolling, the
+    // same way Amazon/Flipkart-style feeds behave.
+    LaunchedEffect(gridState) {
+        snapshotFlow {
+            val info = gridState.layoutInfo
+            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisibleIndex to info.totalItemsCount
         }
-    }
+            .distinctUntilChanged()
+            .collect { (lastVisibleIndex, totalItemsCount) ->
+                if (totalItemsCount > 0 &&
+                    lastVisibleIndex >= totalItemsCount - LOAD_MORE_BUFFER &&
+                    displayedCount < randomProducts.size
+                ) {
+                    val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
+                    val nextBatch = randomProducts.subList(displayedCount, nextEnd)
 
-    LaunchedEffect(shouldLoadMore, randomProducts) {
-        if (shouldLoadMore && displayedCount < randomProducts.size) {
-            val nextEnd = minOf(displayedCount + PAGE_SIZE, randomProducts.size)
-            val nextBatch = randomProducts.subList(displayedCount, nextEnd)
+                    // Prefetch the next batch's images before they're actually
+                    // revealed, so by the time the grid grows, most images are
+                    // already in Coil's cache and paint instantly - this is
+                    // what makes it feel "instant" instead of popping in.
+                    nextBatch.forEach { product ->
+                        val request = ImageRequest.Builder(context)
+                            .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
+                            .build()
+                        context.imageLoader.enqueue(request)
+                    }
 
-            // Kick off prefetching the next batch's images before they're
-            // actually revealed, so by the time the grid grows, most images
-            // are already in Coil's cache and just paint instantly.
-            nextBatch.forEach { product ->
-                val request = ImageRequest.Builder(context)
-                    .data(getOptimizedUrl(product.imageUrl, width = GRID_THUMB_WIDTH))
-                    .build()
-                context.imageLoader.enqueue(request)
+                    displayedCount = nextEnd
+                }
             }
-
-            displayedCount = nextEnd
-        }
     }
 
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -392,14 +413,15 @@ fun ProductGridItem(product: Product, onClick: () -> Unit) {
                     Spacer(Modifier.weight(1f))
                     if (product.quantity.isNotBlank()) {
                         Surface(
-                            color = KankarejGreen.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(6.dp)
+                            color = KankarejGreen.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
                                 text = product.quantity,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                fontSize = 13.sp,
                                 color = KankarejGreen,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
