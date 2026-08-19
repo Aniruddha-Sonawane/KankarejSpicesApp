@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -29,6 +30,7 @@ import androidx.navigation.NavController
 import coil.imageLoader
 import com.kankarej.kankarejspices.data.ProductRepository
 import com.kankarej.kankarejspices.model.AppSettings
+import com.kankarej.kankarejspices.notifications.NotificationSettingsDialog
 import com.kankarej.kankarejspices.ui.theme.KankarejGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,15 +40,30 @@ fun ModalScreen(
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit
 ) {
+
     val context = LocalContext.current
-    val repo = remember { ProductRepository() }
+    val repo = remember {
+        ProductRepository()
+    }
 
     val appSettings by repo
         .getAppSettingsFlow()
-        .collectAsState(initial = AppSettings())
+        .collectAsState(
+            initial = AppSettings()
+        )
 
-    fun openUrl(url: String, unavailableMessage: String) {
-        val cleanUrl = url.trim()
+    var showNotificationDialog by
+        remember {
+            mutableStateOf(false)
+        }
+
+    fun openUrl(
+        url: String,
+        unavailableMessage: String
+    ) {
+
+        val cleanUrl =
+            url.trim()
 
         if (cleanUrl.isBlank()) {
             Toast.makeText(
@@ -58,13 +75,16 @@ fun ModalScreen(
         }
 
         try {
-            val intent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(cleanUrl)
+
+            context.startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(cleanUrl)
+                )
             )
 
-            context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
+
             Toast.makeText(
                 context,
                 "Couldn't open the link.",
@@ -74,37 +94,47 @@ fun ModalScreen(
     }
 
     fun shareApp() {
-        val appLink = appSettings.appLink.trim()
+
+        val appLink =
+            appSettings.appLink.trim()
 
         if (appLink.isBlank()) {
+
             Toast.makeText(
                 context,
                 "App sharing link is not configured yet.",
                 Toast.LENGTH_SHORT
             ).show()
+
             return
         }
 
-        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(
-                Intent.EXTRA_SUBJECT,
-                "Kankarej Spices"
-            )
-            putExtra(
-                Intent.EXTRA_TEXT,
-                "Check out Kankarej Spices!\n\n$appLink"
-            )
-        }
+        val sendIntent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+
+                putExtra(
+                    Intent.EXTRA_SUBJECT,
+                    "Kankarej Spices"
+                )
+
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    "Check out Kankarej Spices!\n\n$appLink"
+                )
+            }
 
         try {
+
             context.startActivity(
                 Intent.createChooser(
                     sendIntent,
                     "Share Kankarej Spices"
                 )
             )
-        } catch (e: Exception) {
+
+        } catch (_: Exception) {
+
             Toast.makeText(
                 context,
                 "Couldn't open the share menu.",
@@ -114,93 +144,139 @@ fun ModalScreen(
     }
 
     Scaffold(
+
         topBar = {
+
             TopAppBar(
                 title = {
                     Text(
                         "Settings",
-                        fontWeight = FontWeight.Bold
+                        fontWeight =
+                            FontWeight.Bold
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                colors =
+                    TopAppBarDefaults
+                        .topAppBarColors(
+                            containerColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .surface,
+                            titleContentColor =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
+                        )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+
+        containerColor =
+            MaterialTheme
+                .colorScheme
+                .background
+
     ) { padding ->
 
         Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+            modifier =
+                Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .verticalScroll(
+                        rememberScrollState()
+                    )
+                    .padding(16.dp)
         ) {
 
-            // --- SECTION 1: APPEARANCE ---
-            SettingsSectionTitle("Appearance")
+            SettingsSectionTitle(
+                "Appearance"
+            )
 
             SettingsCard {
+
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onToggleTheme()
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onToggleTheme()
+                            }
+                            .padding(16.dp),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
+
                     Icon(
                         Icons.Default.DarkMode,
                         null,
-                        tint = KankarejGreen,
-                        modifier = Modifier.size(24.dp)
+                        tint =
+                            KankarejGreen,
+                        modifier =
+                            Modifier.size(24.dp)
                     )
 
                     Spacer(
-                        modifier = Modifier.width(16.dp)
+                        Modifier.width(16.dp)
                     )
 
                     Column(
-                        modifier = Modifier.weight(1f)
+                        Modifier.weight(1f)
                     ) {
+
                         Text(
                             "Dark Mode",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyLarge,
+                            fontWeight =
+                                FontWeight.Medium,
+                            color =
+                                MaterialTheme
+                                    .colorScheme
+                                    .onSurface
                         )
 
                         Text(
-                            if (isDarkTheme) "On" else "Off",
-                            style = MaterialTheme.typography.bodySmall,
+                            if (isDarkTheme)
+                                "On"
+                            else
+                                "Off",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodySmall,
                             color = Color.Gray
                         )
                     }
 
                     Switch(
-                        checked = isDarkTheme,
+                        checked =
+                            isDarkTheme,
                         onCheckedChange = {
                             onToggleTheme()
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = KankarejGreen
-                        )
+                        colors =
+                            SwitchDefaults.colors(
+                                checkedThumbColor =
+                                    Color.White,
+                                checkedTrackColor =
+                                    KankarejGreen
+                            )
                     )
                 }
             }
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                Modifier.height(24.dp)
             )
 
-            // --- SECTION 2: GENERAL ---
-            SettingsSectionTitle("General")
+            SettingsSectionTitle(
+                "General"
+            )
 
             SettingsCard {
+
                 SettingsItem(
                     Icons.Default.Language,
                     "Language",
@@ -212,14 +288,31 @@ fun ModalScreen(
                         Toast.LENGTH_SHORT
                     ).show()
                 }
+
+                HorizontalDivider(
+                    color =
+                        Color.LightGray.copy(
+                            alpha = 0.3f
+                        )
+                )
+
+                SettingsItem(
+                    Icons.Default.Notifications,
+                    "Scheduled Notifications",
+                    "View fetched notifications and schedule times"
+                ) {
+                    showNotificationDialog =
+                        true
+                }
             }
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                Modifier.height(24.dp)
             )
 
-            // --- SECTION 3: SUPPORT & SHARE ---
-            SettingsSectionTitle("Support")
+            SettingsSectionTitle(
+                "Support"
+            )
 
             SettingsCard {
 
@@ -232,7 +325,10 @@ fun ModalScreen(
                 }
 
                 HorizontalDivider(
-                    color = Color.LightGray.copy(alpha = 0.3f)
+                    color =
+                        Color.LightGray.copy(
+                            alpha = 0.3f
+                        )
                 )
 
                 SettingsItem(
@@ -248,11 +344,12 @@ fun ModalScreen(
             }
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                Modifier.height(24.dp)
             )
 
-            // --- SECTION 4: DATA & PRIVACY ---
-            SettingsSectionTitle("Data")
+            SettingsSectionTitle(
+                "Data"
+            )
 
             SettingsCard {
 
@@ -261,8 +358,16 @@ fun ModalScreen(
                     "Clear Image Cache",
                     "Free up space"
                 ) {
-                    context.imageLoader.memoryCache?.clear()
-                    context.imageLoader.diskCache?.clear()
+
+                    context
+                        .imageLoader
+                        .memoryCache
+                        ?.clear()
+
+                    context
+                        .imageLoader
+                        .diskCache
+                        ?.clear()
 
                     Toast.makeText(
                         context,
@@ -272,7 +377,10 @@ fun ModalScreen(
                 }
 
                 HorizontalDivider(
-                    color = Color.LightGray.copy(alpha = 0.3f)
+                    color =
+                        Color.LightGray.copy(
+                            alpha = 0.3f
+                        )
                 )
 
                 SettingsItem(
@@ -287,53 +395,88 @@ fun ModalScreen(
             }
 
             Spacer(
-                modifier = Modifier.height(32.dp)
+                Modifier.height(32.dp)
             )
 
             Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                Modifier.fillMaxWidth(),
+                contentAlignment =
+                    Alignment.Center
             ) {
+
                 Text(
                     "Version 1.0.0",
-                    style = MaterialTheme.typography.labelMedium,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelMedium,
                     color = Color.Gray
                 )
             }
 
             Spacer(
-                modifier = Modifier.height(20.dp)
+                Modifier.height(20.dp)
             )
         }
+    }
+
+    if (showNotificationDialog) {
+
+        NotificationSettingsDialog(
+            onDismiss = {
+                showNotificationDialog =
+                    false
+            }
+        )
     }
 }
 
 @Composable
-fun SettingsSectionTitle(title: String) {
+fun SettingsSectionTitle(
+    title: String
+) {
+
     Text(
         text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = KankarejGreen,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(
-            bottom = 8.dp,
-            start = 4.dp
-        )
+        style =
+            MaterialTheme
+                .typography
+                .titleSmall,
+        color =
+            KankarejGreen,
+        fontWeight =
+            FontWeight.Bold,
+        modifier =
+            Modifier.padding(
+                bottom = 8.dp,
+                start = 4.dp
+            )
     )
 }
 
 @Composable
 fun SettingsCard(
-    content: @Composable ColumnScope.() -> Unit
+    content:
+        @Composable ColumnScope.() -> Unit
 ) {
+
     Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme
+                        .colorScheme
+                        .surface
+            ),
+        elevation =
+            CardDefaults
+                .cardElevation(2.dp),
+        shape =
+            RoundedCornerShape(12.dp),
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
+
         Column(
             content = content
         )
@@ -348,49 +491,70 @@ fun SettingsItem(
     showArrow: Boolean = true,
     onClick: () -> Unit
 ) {
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick = onClick
+                )
+                .padding(16.dp),
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
+
         Icon(
             icon,
             null,
             tint = Color.Gray,
-            modifier = Modifier.size(24.dp)
+            modifier =
+                Modifier.size(24.dp)
         )
 
         Spacer(
-            modifier = Modifier.width(16.dp)
+            Modifier.width(16.dp)
         )
 
         Column(
-            modifier = Modifier.weight(1f)
+            Modifier.weight(1f)
         ) {
+
             Text(
                 title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+                style =
+                    MaterialTheme
+                        .typography
+                        .bodyLarge,
+                fontWeight =
+                    FontWeight.Medium,
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .onSurface
             )
 
             if (subtitle != null) {
+
                 Text(
                     subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
                     color = Color.Gray
                 )
             }
         }
 
         if (showArrow) {
+
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForwardIos,
                 null,
                 tint = Color.LightGray,
-                modifier = Modifier.size(16.dp)
+                modifier =
+                    Modifier.size(16.dp)
             )
         }
     }

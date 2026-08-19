@@ -15,6 +15,7 @@ class NotificationReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent
     ) {
+
         val notificationId =
             intent.getIntExtra(
                 EXTRA_NOTIFICATION_ID,
@@ -25,23 +26,21 @@ class NotificationReceiver : BroadcastReceiver() {
             return
         }
 
+        // Display from the local buffer first.
+        // Internet is NOT required here.
         OfflineNotificationManager.showNotification(
             context,
             notificationId
         )
 
-        // The current notification uses the local buffer,
-        // so this works without internet.
-        //
-        // Then Firebase is synchronized in the background.
-        // Any updated content will therefore be available
-        // for the next scheduled notification.
+        // Refresh Firebase after local delivery.
+        // If offline, the cached data remains unchanged.
         OfflineNotificationManager.syncFromFirebase(
             context
         )
 
-        // Android alarms are one-shot, so schedule the
-        // next occurrence after every trigger.
+        // Schedule the next occurrence using the
+        // current locally cached schedule.
         OfflineNotificationManager.scheduleAll(
             context
         )
