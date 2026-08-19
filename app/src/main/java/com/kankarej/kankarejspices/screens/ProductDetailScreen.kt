@@ -195,7 +195,7 @@ fun ProductDetailScreen(
                             )
 
                             Text(
-                                text = "Enquire Now",
+                                text = "Enquire",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -393,3 +393,4 @@ fun ProductDetailScreen(
         }
     }
 }
+
