@@ -7,7 +7,11 @@ data class ContactInfo(
     // We will map the 'team' node manually in the repo, 
     // so we don't strictly need it in the constructor if we use a helper class, 
     // but a separate list makes UI easier.
-    val teamList: List<ContactPerson> = emptyList()
+    val teamList: List<ContactPerson> = emptyList(),
+    // NEW: business WhatsApp number used for the "Enquire Now" button.
+    // Store in Firebase as contact_info/whatsapp, digits only with country
+    // code, e.g. "919876543210" (no +, no spaces, no dashes).
+    val whatsappNumber: String = ""
 )
 
 data class ContactPerson(
