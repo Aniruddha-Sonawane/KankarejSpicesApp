@@ -1,4 +1,4 @@
-package com.kankarej.kankarejspices
+﻿package com.kankarej.kankarejspices
 
 import android.app.Application
 import coil.ImageLoader
@@ -7,22 +7,41 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import coil.util.DebugLogger
+import com.kankarej.kankarejspices.notifications.OfflineNotificationManager
 
 class KankarejApp : Application(), ImageLoaderFactory {
+
+    override fun onCreate() {
+        super.onCreate()
+
+        // Initialize offline notification scheduling.
+        //
+        // This:
+        // 1. Creates the notification channel.
+        // 2. Schedules 08:30, 14:00 and 20:00 alarms.
+        // 3. Attempts to refresh the local notification buffer
+        //    from Firebase.
+        //
+        // If Firebase is unavailable, the existing local buffer
+        // remains available for offline notification delivery.
+        OfflineNotificationManager.initialize(this)
+    }
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .memoryCache {
                 MemoryCache.Builder(this)
-                    .maxSizePercent(0.25) // Use 25% of memory for images
+                    .maxSizePercent(0.25)
                     .build()
             }
             .diskCachePolicy(CachePolicy.ENABLED)
             .diskCache {
                 DiskCache.Builder()
-                    .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.05) // Use 5% of disk for images
+                    .directory(
+                        cacheDir.resolve("image_cache")
+                    )
+                    .maxSizePercent(0.05)
                     .build()
             }
             .crossfade(true)
